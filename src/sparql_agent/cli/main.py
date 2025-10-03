@@ -25,7 +25,8 @@ from ..core.exceptions import (
 )
 from ..discovery.capabilities import CapabilitiesDetector
 from ..execution.validator import QueryValidator
-from ..execution.executor import QueryExecutor
+from ..execution.executor import QueryExecutor, execute_query_with_validation
+from ..query.schema_tools import create_schema_tools
 from ..formatting.structured import (
     JSONFormatter,
     CSVFormatter,
@@ -205,6 +206,18 @@ def cli(ctx, config: Optional[str], verbose: int, debug: bool, profile: Optional
     is_flag=True,
     help='Use the smart schema-driven query generator instead of basic generation'
 )
+@click.option(
+    '--max-validation-retries',
+    type=int,
+    default=5,
+    help='Maximum validation retry attempts for query fixes (default: 5)'
+)
+@click.option(
+    '--max-execution-retries',
+    type=int,
+    default=3,
+    help='Maximum execution retry attempts after endpoint errors (default: 3)'
+)
 @click.pass_context
 def query(
     ctx,
@@ -220,7 +233,9 @@ def query(
     strategy: str,
     llm_provider: Optional[str],
     schema: Optional[str],
-    use_smart_generator: bool
+    use_smart_generator: bool,
+    max_validation_retries: int,
+    max_execution_retries: int
 ):
     """
     Generate and execute a SPARQL query from natural language.
@@ -462,11 +477,47 @@ def query(
         # Execute if requested
         if execute:
             if verbose:
-                click.echo("Executing query...")
+                click.echo("Executing query with validation and retry logic...")
 
-            executor = QueryExecutor(timeout=timeout or 60)
-            endpoint_info = EndpointInfo(url=endpoint_url)
-            query_result = executor.execute(result.query, endpoint_info)
+            # Create schema tools for validation (skip discovery for speed unless smart generator)
+            schema_tools = None
+            if use_smart_generator and schema:
+                # Use schema tools if we have schema and are using smart generator
+                try:
+                    schema_tools = create_schema_tools(endpoint_url, skip_discovery=True)
+                    if verbose:
+                        click.echo("Using schema tools for validation")
+                except Exception as e:
+                    if verbose:
+                        click.echo(f"Warning: Could not create schema tools: {e}")
+
+            # Execute with validation and retry
+            try:
+                query_result, execution_metadata = execute_query_with_validation(
+                    query=result.query,
+                    endpoint=endpoint_url,
+                    original_intent=query,
+                    llm_client=llm_client,
+                    schema_tools=schema_tools,
+                    max_retries=max_validation_retries,
+                    max_execution_retries=max_execution_retries,
+                    timeout=timeout or 60
+                )
+
+                if verbose and execution_metadata:
+                    if execution_metadata.get('pre_validation_attempts', 0) > 1:
+                        click.echo(f"✓ Query validated after {execution_metadata['pre_validation_attempts']} attempt(s)")
+                    if execution_metadata.get('execution_attempts', 0) > 1:
+                        click.echo(f"✓ Query executed after {execution_metadata['execution_attempts']} attempt(s)")
+                    if execution_metadata.get('final_query') != result.query:
+                        click.echo("✓ Query was modified during validation/retry process")
+
+            except Exception as e:
+                click.echo(f"Error executing query: {e}", err=True)
+                if verbose:
+                    import traceback
+                    click.echo(traceback.format_exc(), err=True)
+                sys.exit(1)
 
             # Format output
             output_text = None

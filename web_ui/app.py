@@ -24,13 +24,9 @@ sys.path.insert(0, str(Path(__file__).parent.parent / "src"))
 try:
     from sparql_agent.llm import create_anthropic_provider
     from sparql_agent.query import quick_generate, create_prompt_engine
-    from sparql_agent.execution import execute_query, QueryExecutor
-
-    # Import our improved generator
-    import sys
-    from pathlib import Path
-    sys.path.insert(0, str(Path(__file__).parent.parent))
-    from working_query_generator import WorkingSPARQLGenerator
+    from sparql_agent.execution import execute_query, execute_query_with_validation, QueryExecutor
+    from sparql_agent.query.validation_retry import validate_before_execution
+    from sparql_agent.query.schema_tools import create_schema_tools
     from sparql_agent.discovery import EndpointPinger, EndpointStatus
     from sparql_agent.formatting.visualizer import VisualizationSelector
 except ImportError as e:
@@ -143,12 +139,11 @@ def query():
         logger.info(f"Processing query: {nl_query}")
         logger.info(f"Using endpoint: {endpoint_url}")
 
-        # Step 1: Generate SPARQL query with endpoint-specific context
+        # Step 1: Generate SPARQL query using quick_generate
         try:
-            # Use our improved generator
-            working_generator = WorkingSPARQLGenerator(api_key)
-            sparql_query = working_generator.generate_context_aware_query(nl_query, endpoint_url)
-            logger.info(f"Generated SPARQL: {sparql_query}")
+            llm_client = create_anthropic_provider(api_key=api_key)
+            sparql_query = quick_generate(nl_query, llm_client=llm_client)
+            logger.info(f"Generated initial SPARQL: {sparql_query}")
         except Exception as e:
             error_msg = f"Failed to generate SPARQL query: {str(e)}"
             logger.error(error_msg)
@@ -156,21 +151,29 @@ def query():
             save_session(chat_session)
             return jsonify({"error": error_msg}), 500
 
-        # Step 2: Execute SPARQL query
+        # Step 2: Execute SPARQL query with validation and retry
         try:
-            result = execute_query(sparql_query, endpoint_url)
+            # Create schema tools for the endpoint (with discovery skip for faster response)
+            schema_tools = create_schema_tools(endpoint_url, skip_discovery=True)
 
-            if not hasattr(result, 'bindings'):
-                error_msg = f"Query execution failed: Invalid result format"
-                logger.error(error_msg)
-                chat_session.add_message("assistant", error_msg, {"error": True})
-                save_session(chat_session)
-                return jsonify({
-                    "error": error_msg,
-                    "sparql_query": sparql_query
-                }), 500
+            # Execute with validation and retry logic
+            result, execution_metadata = execute_query_with_validation(
+                query=sparql_query,
+                endpoint=endpoint_url,
+                original_intent=nl_query,
+                llm_client=llm_client,
+                schema_tools=schema_tools,
+                max_retries=5,
+                max_execution_retries=3,
+                timeout=60
+            )
 
-            logger.info(f"Query executed successfully, {len(result.bindings)} results")
+            logger.info(f"Query executed with validation, {len(result.bindings)} results")
+            logger.info(f"Validation metadata: {execution_metadata}")
+
+            # Extract final query used (may be different from original if retries occurred)
+            final_sparql_query = execution_metadata.get('final_query', sparql_query)
+
         except Exception as e:
             error_msg = f"Query execution error: {str(e)}"
             logger.error(error_msg)
@@ -194,12 +197,11 @@ def query():
             # Try to generate visualization suggestion
             visualization = None
             try:
-                selector = VisualizationSelector()
-                viz_suggestion = selector.suggest_visualization(result.bindings)
-                if viz_suggestion:
+                viz_type = VisualizationSelector.recommend_visualization(result)
+                if viz_type:
                     visualization = {
-                        "type": viz_suggestion.chart_type.value,
-                        "config": viz_suggestion.config
+                        "type": viz_type.value,
+                        "config": {}
                     }
             except Exception as viz_error:
                 logger.warning(f"Visualization suggestion failed: {viz_error}")
@@ -210,7 +212,7 @@ def query():
                 # Generate a natural language explanation of the results
                 explanation_prompt = f"""
 Given the original question: "{nl_query}"
-And the SPARQL query: {sparql_query}
+And the SPARQL query: {final_sparql_query}
 And the results showing {len(formatted_results)} items:
 
 {json.dumps(formatted_results[:3], indent=2) if formatted_results else "No results"}
@@ -220,8 +222,8 @@ Focus on answering the original question and summarizing the key insights from t
 """
 
                 from sparql_agent.llm.client import LLMRequest
-                request = LLMRequest(prompt=explanation_prompt, max_tokens=500)
-                explanation_response = working_generator.llm_client.generate(request)
+                llm_request = LLMRequest(prompt=explanation_prompt, max_tokens=500)
+                explanation_response = llm_client.generate(llm_request)
                 if explanation_response and hasattr(explanation_response, 'content'):
                     nl_explanation = explanation_response.content.strip()
 
@@ -231,19 +233,24 @@ Focus on answering the original question and summarizing the key insights from t
             response_data = {
                 "success": True,
                 "query": nl_query,
-                "sparql_query": sparql_query,
+                "sparql_query": final_sparql_query,
+                "original_query": sparql_query if final_sparql_query != sparql_query else None,
                 "endpoint": endpoint_url,
                 "results": formatted_results,
                 "result_count": len(formatted_results),
                 "execution_time": getattr(result, 'execution_time', 0),
                 "visualization": visualization,
-                "explanation": nl_explanation
+                "explanation": nl_explanation,
+                "validation_metadata": execution_metadata
             }
 
             success_msg = f"Found {len(formatted_results)} results"
             chat_session.add_message("assistant", success_msg, {
-                "sparql_query": sparql_query,
-                "result_count": len(formatted_results)
+                "sparql_query": final_sparql_query,
+                "original_query": sparql_query if final_sparql_query != sparql_query else None,
+                "result_count": len(formatted_results),
+                "validation_attempts": execution_metadata.get('validation_attempts', 0),
+                "execution_attempts": execution_metadata.get('execution_attempts', 1)
             })
             save_session(chat_session)
 
@@ -254,7 +261,7 @@ Focus on answering the original question and summarizing the key insights from t
             logger.error(error_msg)
             return jsonify({
                 "error": error_msg,
-                "sparql_query": sparql_query
+                "sparql_query": final_sparql_query if 'final_sparql_query' in locals() else sparql_query
             }), 500
 
     except Exception as e:
