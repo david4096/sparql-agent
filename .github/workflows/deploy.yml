@@ -44,7 +44,7 @@ jobs:
       deploy_gcp: ${{ steps.config.outputs.deploy_gcp }}
       deploy_azure: ${{ steps.config.outputs.deploy_azure }}
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v5
 
       - name: Determine deployment configuration
         id: config
@@ -110,7 +110,7 @@ jobs:
       id-token: write
       contents: read
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v5
 
       - name: Configure AWS credentials
         uses: aws-actions/configure-aws-credentials@v4
@@ -169,7 +169,7 @@ jobs:
       id-token: write
       contents: read
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v5
 
       - name: Authenticate to Google Cloud
         uses: google-github-actions/auth@v2
@@ -227,7 +227,7 @@ jobs:
       name: azure-${{ needs.prepare-deployment.outputs.environment }}
       url: ${{ steps.deploy.outputs.url }}
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v5
 
       - name: Login to Azure
         uses: azure/login@v1
@@ -280,7 +280,7 @@ jobs:
     environment:
       name: k8s-${{ needs.prepare-deployment.outputs.environment }}
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v5
 
       - name: Set up kubectl
         uses: azure/setup-kubectl@v3
@@ -324,7 +324,7 @@ jobs:
       (needs.deploy-aws.result == 'success' || needs.deploy-gcp.result == 'success' || needs.deploy-azure.result == 'success')
     timeout-minutes: 15
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v5
 
       - name: Run migrations
         run: |
@@ -339,7 +339,7 @@ jobs:
     if: always() && needs.prepare-deployment.result == 'success'
     timeout-minutes: 20
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v5
 
       - name: Set up Python
         uses: actions/setup-python@v5
@@ -369,7 +369,7 @@ jobs:
     if: always()
     timeout-minutes: 10
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v5
 
       - name: Verify deployment status
         run: |
@@ -394,7 +394,7 @@ jobs:
       needs.prepare-deployment.outputs.environment == 'production'
     timeout-minutes: 15
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v5
 
       - name: Execute rollback
         run: |
