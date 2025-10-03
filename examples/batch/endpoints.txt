@@ -1,0 +1,7 @@
+# Example SPARQL endpoints for bulk discovery
+# One endpoint URL per line
+
+https://sparql.uniprot.org/sparql
+https://query.wikidata.org/sparql
+http://dbpedia.org/sparql
+https://www.ebi.ac.uk/rdf/services/sparql

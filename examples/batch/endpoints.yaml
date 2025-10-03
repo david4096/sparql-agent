@@ -1,0 +1,30 @@
+---
+# Example endpoints for bulk discovery (YAML format)
+
+- id: uniprot
+  endpoint: https://sparql.uniprot.org/sparql
+  metadata:
+    name: UniProt SPARQL
+    description: Universal Protein Resource
+    domain: proteins
+
+- id: wikidata
+  endpoint: https://query.wikidata.org/sparql
+  metadata:
+    name: Wikidata Query Service
+    description: Free knowledge base
+    domain: general
+
+- id: dbpedia
+  endpoint: http://dbpedia.org/sparql
+  metadata:
+    name: DBpedia
+    description: Structured Wikipedia data
+    domain: general
+
+- id: ebi
+  endpoint: https://www.ebi.ac.uk/rdf/services/sparql
+  metadata:
+    name: EBI RDF Platform
+    description: European Bioinformatics Institute
+    domain: bioinformatics

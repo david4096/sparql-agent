@@ -1,0 +1,227 @@
+# Kubernetes deployment configuration for SPARQL Agent
+apiVersion: v1
+kind: Namespace
+metadata:
+  name: sparql-agent
+  labels:
+    name: sparql-agent
+
+---
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: sparql-agent-config
+  namespace: sparql-agent
+data:
+  ENVIRONMENT: "production"
+  LOG_LEVEL: "INFO"
+  PORT: "8000"
+
+---
+apiVersion: v1
+kind: Secret
+metadata:
+  name: sparql-agent-secrets
+  namespace: sparql-agent
+type: Opaque
+data:
+  # Base64 encoded secrets
+  # ANTHROPIC_API_KEY: <base64-encoded-value>
+  # OPENAI_API_KEY: <base64-encoded-value>
+
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: sparql-agent
+  namespace: sparql-agent
+  labels:
+    app: sparql-agent
+    version: v1
+spec:
+  replicas: 3
+  strategy:
+    type: RollingUpdate
+    rollingUpdate:
+      maxSurge: 1
+      maxUnavailable: 0
+  selector:
+    matchLabels:
+      app: sparql-agent
+  template:
+    metadata:
+      labels:
+        app: sparql-agent
+        version: v1
+      annotations:
+        prometheus.io/scrape: "true"
+        prometheus.io/port: "8000"
+        prometheus.io/path: "/metrics"
+    spec:
+      serviceAccountName: sparql-agent
+      securityContext:
+        runAsNonRoot: true
+        runAsUser: 1000
+        fsGroup: 1000
+      containers:
+      - name: sparql-agent
+        image: ghcr.io/sparql-agent/sparql-agent:latest
+        imagePullPolicy: Always
+        ports:
+        - name: http
+          containerPort: 8000
+          protocol: TCP
+        - name: metrics
+          containerPort: 9090
+          protocol: TCP
+        env:
+        - name: PORT
+          value: "8000"
+        envFrom:
+        - configMapRef:
+            name: sparql-agent-config
+        - secretRef:
+            name: sparql-agent-secrets
+        resources:
+          requests:
+            memory: "1Gi"
+            cpu: "500m"
+          limits:
+            memory: "2Gi"
+            cpu: "2000m"
+        livenessProbe:
+          httpGet:
+            path: /health
+            port: http
+          initialDelaySeconds: 30
+          periodSeconds: 10
+          timeoutSeconds: 5
+          failureThreshold: 3
+        readinessProbe:
+          httpGet:
+            path: /ready
+            port: http
+          initialDelaySeconds: 10
+          periodSeconds: 5
+          timeoutSeconds: 3
+          failureThreshold: 3
+        volumeMounts:
+        - name: cache
+          mountPath: /app/.cache
+        - name: data
+          mountPath: /app/data
+      volumes:
+      - name: cache
+        emptyDir: {}
+      - name: data
+        persistentVolumeClaim:
+          claimName: sparql-agent-data
+
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: sparql-agent
+  namespace: sparql-agent
+  labels:
+    app: sparql-agent
+spec:
+  type: LoadBalancer
+  ports:
+  - port: 80
+    targetPort: http
+    protocol: TCP
+    name: http
+  - port: 9090
+    targetPort: metrics
+    protocol: TCP
+    name: metrics
+  selector:
+    app: sparql-agent
+
+---
+apiVersion: v1
+kind: ServiceAccount
+metadata:
+  name: sparql-agent
+  namespace: sparql-agent
+
+---
+apiVersion: v1
+kind: PersistentVolumeClaim
+metadata:
+  name: sparql-agent-data
+  namespace: sparql-agent
+spec:
+  accessModes:
+  - ReadWriteOnce
+  resources:
+    requests:
+      storage: 10Gi
+  storageClassName: standard
+
+---
+apiVersion: autoscaling/v2
+kind: HorizontalPodAutoscaler
+metadata:
+  name: sparql-agent-hpa
+  namespace: sparql-agent
+spec:
+  scaleTargetRef:
+    apiVersion: apps/v1
+    kind: Deployment
+    name: sparql-agent
+  minReplicas: 2
+  maxReplicas: 10
+  metrics:
+  - type: Resource
+    resource:
+      name: cpu
+      target:
+        type: Utilization
+        averageUtilization: 70
+  - type: Resource
+    resource:
+      name: memory
+      target:
+        type: Utilization
+        averageUtilization: 80
+
+---
+apiVersion: policy/v1
+kind: PodDisruptionBudget
+metadata:
+  name: sparql-agent-pdb
+  namespace: sparql-agent
+spec:
+  minAvailable: 1
+  selector:
+    matchLabels:
+      app: sparql-agent
+
+---
+apiVersion: networking.k8s.io/v1
+kind: Ingress
+metadata:
+  name: sparql-agent-ingress
+  namespace: sparql-agent
+  annotations:
+    kubernetes.io/ingress.class: nginx
+    cert-manager.io/cluster-issuer: letsencrypt-prod
+    nginx.ingress.kubernetes.io/ssl-redirect: "true"
+spec:
+  tls:
+  - hosts:
+    - sparql-agent.example.com
+    secretName: sparql-agent-tls
+  rules:
+  - host: sparql-agent.example.com
+    http:
+      paths:
+      - path: /
+        pathType: Prefix
+        backend:
+          service:
+            name: sparql-agent
+            port:
+              number: 80

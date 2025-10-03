@@ -1,0 +1,178 @@
+# Performance Testing Configuration
+
+# Baseline Metrics (expected performance)
+baseline_metrics:
+  query_execution_ms: 100
+  llm_generation_ms: 2000
+  parsing_ms: 50
+  memory_baseline_mb: 50
+
+# Performance Thresholds (maximum acceptable values)
+thresholds:
+  max_query_time_ms: 500
+  max_generation_time_ms: 5000
+  max_parsing_time_ms: 200
+  max_memory_mb: 200
+  max_memory_growth_mb: 50
+  regression_tolerance: 0.20  # 20% tolerance
+
+# Load Testing Configuration
+load_test:
+  sparql:
+    host: "http://localhost:8000"
+    users: 10
+    spawn_rate: 1
+    duration: "1m"
+    queries_per_user: 100
+
+  llm:
+    host: "http://localhost:8000"
+    users: 5
+    spawn_rate: 1
+    duration: "2m"
+    rate_limit_rps: 10
+
+  mcp:
+    host: "http://localhost:8080"
+    users: 10
+    spawn_rate: 2
+    duration: "1m"
+
+  web:
+    host: "http://localhost:8000"
+    users: 20
+    spawn_rate: 2
+    duration: "2m"
+
+# Benchmark Configuration
+benchmark:
+  rounds: 100  # Number of benchmark iterations
+  warmup_rounds: 10  # Warmup iterations before benchmarking
+  min_rounds: 50  # Minimum rounds for statistical significance
+  max_time: 10.0  # Maximum time per benchmark in seconds
+  calibration_precision: 10  # Benchmark calibration precision
+
+# Memory Profiling Configuration
+memory_profiling:
+  enabled: true
+  interval: 0.1  # Sampling interval in seconds
+  max_measurements: 1000
+  track_objects: true
+
+# Concurrency Testing Configuration
+concurrency:
+  max_workers: 20
+  test_levels: [1, 5, 10, 20, 50, 100]
+  timeout: 30  # Timeout per concurrent operation in seconds
+
+# Result Set Sizes for Scaling Tests
+result_set_sizes:
+  small: 10
+  medium: 100
+  large: 1000
+  xlarge: 10000
+
+# Query Complexity Levels
+query_complexity:
+  simple:
+    joins: 1
+    filters: 0
+    limit: 10
+  moderate:
+    joins: 3
+    filters: 2
+    limit: 50
+  complex:
+    joins: 5
+    filters: 5
+    limit: 100
+  very_complex:
+    joins: 10
+    filters: 10
+    limit: 500
+
+# Profiling Tools Configuration
+profiling:
+  cprofile:
+    enabled: true
+    sort_by: "cumulative"
+    top_n: 20
+
+  memory_profiler:
+    enabled: true
+    precision: 1
+
+  py_spy:
+    enabled: false  # Requires root/admin
+    format: "flamegraph"
+    rate: 100  # Samples per second
+
+# Reporting Configuration
+reporting:
+  output_dir: "tests/performance/reports"
+  formats: ["json", "html", "csv"]
+  generate_charts: true
+  chart_types: ["line", "bar", "scatter", "histogram"]
+  compare_with_baseline: true
+  alert_on_regression: true
+
+# CI/CD Integration
+ci_cd:
+  fail_on_regression: true
+  regression_threshold: 0.25  # 25% regression fails the build
+  required_tests: ["query_performance", "memory_usage"]
+  performance_gates:
+    - metric: "max_query_time_ms"
+      threshold: 500
+    - metric: "max_memory_mb"
+      threshold: 200
+    - metric: "max_generation_time_ms"
+      threshold: 5000
+
+# Test Data Configuration
+test_data:
+  ontologies:
+    small: "tests/fixtures/ontologies/small.owl"
+    medium: "tests/fixtures/ontologies/medium.owl"
+    large: "tests/fixtures/ontologies/large.owl"
+
+  datasets:
+    small: "tests/fixtures/datasets/small.ttl"
+    medium: "tests/fixtures/datasets/medium.ttl"
+    large: "tests/fixtures/datasets/large.ttl"
+
+# Endpoint Configuration for Testing
+test_endpoints:
+  mock:
+    url: "http://localhost:9999/sparql"
+    timeout: 30
+
+  local:
+    url: "http://localhost:3030/dataset/sparql"
+    timeout: 30
+
+  public:
+    url: "https://query.wikidata.org/sparql"
+    timeout: 60
+    rate_limit: 1  # Requests per second
+
+# LLM Provider Configuration for Testing
+llm_providers:
+  anthropic:
+    enabled: true
+    model: "claude-3-sonnet-20240229"
+    max_tokens: 1000
+    rate_limit_rpm: 50
+
+  openai:
+    enabled: true
+    model: "gpt-4"
+    max_tokens: 1000
+    rate_limit_rpm: 50
+
+# Feature Flags
+features:
+  enable_caching: true
+  enable_rate_limiting: true
+  enable_compression: true
+  enable_parallel_processing: true

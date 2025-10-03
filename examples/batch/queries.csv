@@ -1,0 +1,6 @@
+id,query,description,expected_results
+query_001,SELECT ?s ?p ?o WHERE { ?s ?p ?o } LIMIT 10,Basic triple pattern,10
+query_002,Find all proteins from human,Natural language protein query,
+query_003,SELECT DISTINCT ?class WHERE { ?s a ?class } LIMIT 50,Class discovery,50
+query_004,Show diseases related to diabetes,Disease relationship query,
+query_005,List genes with GO term DNA binding,Gene ontology query,

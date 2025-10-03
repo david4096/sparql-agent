@@ -1,0 +1,333 @@
+# Ontology Configurations for EBI OLS4 Integration
+# Define ontology metadata and access patterns for the Ontology Lookup Service
+
+# EBI OLS4 API Configuration
+ols_config:
+  api_base_url: "https://www.ebi.ac.uk/ols4/api"
+  sparql_endpoint: "https://www.ebi.ac.uk/ols4/sparql"
+  timeout: 30
+  max_retries: 3
+  page_size: 20
+  user_agent: "SPARQL-Agent/1.0"
+
+# Ontology definitions
+ontologies:
+  # Experimental Factor Ontology
+  efo:
+    id: "efo"
+    name: "Experimental Factor Ontology"
+    namespace: "http://www.ebi.ac.uk/efo/"
+    prefix: "EFO"
+    description: "An application ontology for experimental variables, genetic and disease entities in the context of human biological and biomedical research"
+    homepage: "https://www.ebi.ac.uk/efo/"
+    version_iri: "http://www.ebi.ac.uk/efo/efo.owl"
+    download_url: "http://www.ebi.ac.uk/efo/efo.owl"
+    categories:
+      - "disease"
+      - "phenotype"
+      - "experimental"
+    cache_enabled: true
+    preload: true
+    sparql_enabled: true
+    term_types:
+      - "class"
+      - "property"
+    use_cases:
+      - "Disease annotation"
+      - "Experimental design"
+      - "Phenotype description"
+      - "Clinical studies"
+
+  # Mondo Disease Ontology
+  mondo:
+    id: "mondo"
+    name: "Mondo Disease Ontology"
+    namespace: "http://purl.obolibrary.org/obo/MONDO_"
+    prefix: "MONDO"
+    description: "A global community effort to harmonize multiple disease resources to yield a coherent merged ontology"
+    homepage: "https://mondo.monarchinitiative.org/"
+    version_iri: "http://purl.obolibrary.org/obo/mondo.owl"
+    download_url: "http://purl.obolibrary.org/obo/mondo.owl"
+    categories:
+      - "disease"
+    cache_enabled: true
+    preload: true
+    sparql_enabled: true
+    term_types:
+      - "class"
+    use_cases:
+      - "Disease classification"
+      - "Disease harmonization"
+      - "Cross-database linking"
+      - "Rare disease annotation"
+
+  # Human Phenotype Ontology
+  hp:
+    id: "hp"
+    name: "Human Phenotype Ontology"
+    namespace: "http://purl.obolibrary.org/obo/HP_"
+    prefix: "HP"
+    description: "A standardized vocabulary of phenotypic abnormalities encountered in human disease"
+    homepage: "https://hpo.jax.org/"
+    version_iri: "http://purl.obolibrary.org/obo/hp.owl"
+    download_url: "http://purl.obolibrary.org/obo/hp.owl"
+    categories:
+      - "phenotype"
+      - "human"
+    cache_enabled: true
+    preload: true
+    sparql_enabled: true
+    term_types:
+      - "class"
+    use_cases:
+      - "Clinical phenotyping"
+      - "Rare disease characterization"
+      - "Phenotype-genotype linking"
+      - "Patient similarity"
+
+  # Uberon Multi-species Anatomy Ontology
+  uberon:
+    id: "uberon"
+    name: "Uberon Multi-species Anatomy Ontology"
+    namespace: "http://purl.obolibrary.org/obo/UBERON_"
+    prefix: "UBERON"
+    description: "An integrated cross-species anatomy ontology covering animals and bridging multiple species-specific ontologies"
+    homepage: "http://uberon.github.io/"
+    version_iri: "http://purl.obolibrary.org/obo/uberon.owl"
+    download_url: "http://purl.obolibrary.org/obo/uberon.owl"
+    categories:
+      - "anatomy"
+      - "developmental"
+    cache_enabled: true
+    preload: true
+    sparql_enabled: true
+    term_types:
+      - "class"
+    use_cases:
+      - "Anatomical annotation"
+      - "Cross-species comparison"
+      - "Developmental biology"
+      - "Tissue location"
+
+  # Gene Ontology
+  go:
+    id: "go"
+    name: "Gene Ontology"
+    namespace: "http://purl.obolibrary.org/obo/GO_"
+    prefix: "GO"
+    description: "The Gene Ontology (GO) provides a framework for the functional description of genes and gene products"
+    homepage: "http://geneontology.org/"
+    version_iri: "http://purl.obolibrary.org/obo/go.owl"
+    download_url: "http://purl.obolibrary.org/obo/go.owl"
+    categories:
+      - "gene"
+      - "function"
+      - "process"
+      - "component"
+    cache_enabled: true
+    preload: true
+    sparql_enabled: true
+    term_types:
+      - "class"
+    aspects:
+      - id: "molecular_function"
+        description: "Molecular activities of gene products"
+      - id: "biological_process"
+        description: "Operations or sets of molecular events"
+      - id: "cellular_component"
+        description: "Locations relative to cellular structures"
+    use_cases:
+      - "Functional annotation"
+      - "Pathway analysis"
+      - "Enrichment analysis"
+      - "Gene function prediction"
+
+  # Chemical Entities of Biological Interest
+  chebi:
+    id: "chebi"
+    name: "Chemical Entities of Biological Interest"
+    namespace: "http://purl.obolibrary.org/obo/CHEBI_"
+    prefix: "CHEBI"
+    description: "Chemical Entities of Biological Interest (ChEBI) is a freely available dictionary of molecular entities"
+    homepage: "https://www.ebi.ac.uk/chebi/"
+    version_iri: "http://purl.obolibrary.org/obo/chebi.owl"
+    download_url: "http://purl.obolibrary.org/obo/chebi.owl"
+    categories:
+      - "chemical"
+      - "drug"
+    cache_enabled: true
+    preload: false
+    sparql_enabled: true
+    term_types:
+      - "class"
+    use_cases:
+      - "Chemical annotation"
+      - "Drug discovery"
+      - "Metabolite identification"
+      - "Chemical classification"
+
+  # Protein Ontology
+  pr:
+    id: "pr"
+    name: "Protein Ontology"
+    namespace: "http://purl.obolibrary.org/obo/PR_"
+    prefix: "PR"
+    description: "An ontological representation of protein-related entities"
+    homepage: "https://proconsortium.org/"
+    version_iri: "http://purl.obolibrary.org/obo/pr.owl"
+    download_url: "http://purl.obolibrary.org/obo/pr.owl"
+    categories:
+      - "protein"
+    cache_enabled: true
+    preload: false
+    sparql_enabled: true
+    term_types:
+      - "class"
+    use_cases:
+      - "Protein annotation"
+      - "Protein classification"
+      - "Isoform representation"
+      - "Post-translational modifications"
+
+  # Sequence Ontology
+  so:
+    id: "so"
+    name: "Sequence Ontology"
+    namespace: "http://purl.obolibrary.org/obo/SO_"
+    prefix: "SO"
+    description: "The Sequence Ontology is a set of terms and relationships used to describe the features and attributes of biological sequence"
+    homepage: "http://www.sequenceontology.org/"
+    version_iri: "http://purl.obolibrary.org/obo/so.owl"
+    download_url: "http://purl.obolibrary.org/obo/so.owl"
+    categories:
+      - "sequence"
+      - "genomic"
+    cache_enabled: true
+    preload: false
+    sparql_enabled: true
+    term_types:
+      - "class"
+    use_cases:
+      - "Sequence feature annotation"
+      - "Variant classification"
+      - "Genomic feature description"
+      - "Sequence region types"
+
+  # Cell Ontology
+  cl:
+    id: "cl"
+    name: "Cell Ontology"
+    namespace: "http://purl.obolibrary.org/obo/CL_"
+    prefix: "CL"
+    description: "The Cell Ontology is a structured controlled vocabulary for cell types"
+    homepage: "http://www.obofoundry.org/ontology/cl.html"
+    version_iri: "http://purl.obolibrary.org/obo/cl.owl"
+    download_url: "http://purl.obolibrary.org/obo/cl.owl"
+    categories:
+      - "cell"
+      - "anatomy"
+    cache_enabled: true
+    preload: false
+    sparql_enabled: true
+    term_types:
+      - "class"
+    use_cases:
+      - "Cell type annotation"
+      - "Single-cell analysis"
+      - "Tissue composition"
+      - "Cell differentiation"
+
+  # NCBI Taxonomy
+  ncbitaxon:
+    id: "ncbitaxon"
+    name: "NCBI Organismal Classification"
+    namespace: "http://purl.obolibrary.org/obo/NCBITaxon_"
+    prefix: "NCBITaxon"
+    description: "An ontology representation of the NCBI organismal taxonomy"
+    homepage: "https://www.ncbi.nlm.nih.gov/taxonomy"
+    version_iri: "http://purl.obolibrary.org/obo/ncbitaxon.owl"
+    download_url: "http://purl.obolibrary.org/obo/ncbitaxon.owl"
+    categories:
+      - "taxonomy"
+      - "organism"
+    cache_enabled: true
+    preload: false
+    sparql_enabled: true
+    term_types:
+      - "class"
+    use_cases:
+      - "Taxonomic classification"
+      - "Species identification"
+      - "Cross-species studies"
+      - "Organism annotation"
+
+# Ontology relationship mappings
+relationships:
+  # Common relationship types across ontologies
+  is_a: "http://www.w3.org/2000/01/rdf-schema#subClassOf"
+  part_of: "http://purl.obolibrary.org/obo/BFO_0000050"
+  has_part: "http://purl.obolibrary.org/obo/BFO_0000051"
+  regulates: "http://purl.obolibrary.org/obo/RO_0002211"
+  located_in: "http://purl.obolibrary.org/obo/RO_0001025"
+  derives_from: "http://purl.obolibrary.org/obo/RO_0001000"
+  develops_from: "http://purl.obolibrary.org/obo/RO_0002202"
+
+# Search configuration
+search:
+  default_type: "class"
+  default_page_size: 20
+  max_results: 100
+  fuzzy_matching: true
+  include_obsolete: false
+  include_synonyms: true
+
+  # Field weights for relevance scoring
+  field_weights:
+    label: 10.0
+    synonym: 5.0
+    definition: 3.0
+    description: 2.0
+
+  # Query expansion settings
+  query_expansion:
+    enabled: true
+    use_synonyms: true
+    use_related_terms: false
+    max_expansion: 5
+
+# Annotation property mappings
+annotation_properties:
+  label: "http://www.w3.org/2000/01/rdf-schema#label"
+  definition: "http://purl.obolibrary.org/obo/IAO_0000115"
+  synonym: "http://www.geneontology.org/formats/oboInOwl#hasExactSynonym"
+  xref: "http://www.geneontology.org/formats/oboInOwl#hasDbXref"
+  comment: "http://www.w3.org/2000/01/rdf-schema#comment"
+  deprecated: "http://www.w3.org/2002/07/owl#deprecated"
+  replaced_by: "http://purl.obolibrary.org/obo/IAO_0100001"
+
+# Preload configuration
+preload:
+  enabled: true
+  # Ontologies to preload on startup
+  ontology_ids:
+    - "efo"
+    - "mondo"
+    - "hp"
+    - "uberon"
+    - "go"
+  # Load strategy: "full" or "lazy"
+  strategy: "lazy"
+  # Parallel loading
+  parallel: true
+  max_workers: 3
+
+# Cache settings (detailed)
+cache:
+  type: "filesystem"  # or "memory", "redis"
+  ttl: 86400  # 24 hours
+  max_size_mb: 500
+  compression: true
+  # Update strategy
+  update_strategy: "on_access"  # or "scheduled", "manual"
+  # Background update interval (seconds)
+  update_interval: 3600

@@ -1,0 +1,82 @@
+# Dependabot configuration for automated dependency updates
+version: 2
+updates:
+  # Python dependencies
+  - package-ecosystem: "pip"
+    directory: "/"
+    schedule:
+      interval: "weekly"
+      day: "monday"
+    open-pull-requests-limit: 10
+    reviewers:
+      - "maintainers"
+    labels:
+      - "dependencies"
+      - "python"
+    commit-message:
+      prefix: "deps"
+      include: "scope"
+    ignore:
+      # Ignore major version updates for stable dependencies
+      - dependency-name: "rdflib"
+        update-types: ["version-update:semver-major"]
+
+  # GitHub Actions
+  - package-ecosystem: "github-actions"
+    directory: "/"
+    schedule:
+      interval: "weekly"
+      day: "monday"
+    open-pull-requests-limit: 5
+    reviewers:
+      - "maintainers"
+    labels:
+      - "dependencies"
+      - "github-actions"
+    commit-message:
+      prefix: "ci"
+      include: "scope"
+
+  # Docker
+  - package-ecosystem: "docker"
+    directory: "/"
+    schedule:
+      interval: "weekly"
+      day: "monday"
+    open-pull-requests-limit: 5
+    reviewers:
+      - "maintainers"
+    labels:
+      - "dependencies"
+      - "docker"
+    commit-message:
+      prefix: "docker"
+      include: "scope"
+
+  # Terraform
+  - package-ecosystem: "terraform"
+    directory: "/infrastructure/aws"
+    schedule:
+      interval: "weekly"
+    open-pull-requests-limit: 5
+    labels:
+      - "dependencies"
+      - "infrastructure"
+
+  - package-ecosystem: "terraform"
+    directory: "/infrastructure/gcp"
+    schedule:
+      interval: "weekly"
+    open-pull-requests-limit: 5
+    labels:
+      - "dependencies"
+      - "infrastructure"
+
+  - package-ecosystem: "terraform"
+    directory: "/infrastructure/azure"
+    schedule:
+      interval: "weekly"
+    open-pull-requests-limit: 5
+    labels:
+      - "dependencies"
+      - "infrastructure"

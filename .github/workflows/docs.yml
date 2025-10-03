@@ -1,0 +1,403 @@
+name: Documentation
+
+on:
+  push:
+    branches:
+      - main
+      - develop
+    paths:
+      - 'docs/**'
+      - 'src/**/*.py'
+      - 'mkdocs.yml'
+      - '.github/workflows/docs.yml'
+  pull_request:
+    branches:
+      - main
+      - develop
+    paths:
+      - 'docs/**'
+      - 'src/**/*.py'
+      - 'mkdocs.yml'
+  release:
+    types: [published]
+  workflow_dispatch:
+
+env:
+  PYTHON_VERSION: '3.11'
+
+jobs:
+  # Build documentation
+  build-docs:
+    name: Build Documentation
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0  # Full history for version info
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: ${{ env.PYTHON_VERSION }}
+
+      - name: Install UV
+        run: curl -LsSf https://astral.sh/uv/install.sh | sh
+
+      - name: Cache UV packages
+        uses: actions/cache@v4
+        with:
+          path: ~/.cache/uv
+          key: uv-docs-${{ runner.os }}-${{ hashFiles('uv.lock') }}
+
+      - name: Install dependencies
+        run: |
+          uv sync --frozen
+          uv pip install --system mkdocs mkdocs-material mkdocstrings[python] \
+            mkdocs-git-revision-date-localized-plugin \
+            mkdocs-minify-plugin \
+            mkdocs-redirects \
+            pymdown-extensions
+
+      - name: Generate API documentation
+        run: |
+          uv run python scripts/generate-api-docs.py
+
+      - name: Build documentation
+        run: |
+          mkdocs build --strict
+
+      - name: Check documentation links
+        run: |
+          pip install linkchecker
+          linkchecker site/ --check-extern --ignore-url="^http://localhost" || true
+
+      - name: Upload documentation artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: documentation
+          path: site/
+          retention-days: 30
+
+      - name: Upload pages artifact
+        if: github.event_name == 'push' && github.ref == 'refs/heads/main'
+        uses: actions/upload-pages-artifact@v3
+        with:
+          path: site/
+
+  # Deploy to GitHub Pages
+  deploy-pages:
+    name: Deploy to GitHub Pages
+    runs-on: ubuntu-latest
+    needs: build-docs
+    if: github.event_name == 'push' && github.ref == 'refs/heads/main'
+    timeout-minutes: 10
+    permissions:
+      pages: write
+      id-token: write
+    environment:
+      name: github-pages
+      url: ${{ steps.deployment.outputs.page_url }}
+    steps:
+      - name: Deploy to GitHub Pages
+        id: deployment
+        uses: actions/deploy-pages@v4
+
+  # Generate and publish API reference
+  api-docs:
+    name: Generate API Documentation
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: ${{ env.PYTHON_VERSION }}
+
+      - name: Install UV
+        run: curl -LsSf https://astral.sh/uv/install.sh | sh
+
+      - name: Install dependencies
+        run: |
+          uv sync --frozen
+          uv pip install --system pdoc3 sphinx sphinx-rtd-theme
+
+      - name: Generate pdoc documentation
+        run: |
+          pdoc --html --output-dir api-docs src/sparql_agent
+
+      - name: Generate Sphinx documentation
+        run: |
+          mkdir -p sphinx-docs
+          sphinx-apidoc -o sphinx-docs/source src/sparql_agent
+          cd sphinx-docs
+          sphinx-build -b html source build
+
+      - name: Upload API documentation
+        uses: actions/upload-artifact@v4
+        with:
+          name: api-documentation
+          path: |
+            api-docs/
+            sphinx-docs/build/
+
+  # Check documentation quality
+  docs-quality:
+    name: Documentation Quality Check
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: ${{ env.PYTHON_VERSION }}
+
+      - name: Install documentation tools
+        run: |
+          pip install pydocstyle doc8 proselint
+
+      - name: Check docstring style
+        run: |
+          pydocstyle src/sparql_agent/ --convention=google || true
+
+      - name: Check RST documentation
+        run: |
+          doc8 docs/ || true
+
+      - name: Prose linting
+        run: |
+          find docs -name "*.md" -exec proselint {} \; || true
+
+      - name: Check for broken links in markdown
+        uses: gaurav-nelson/github-action-markdown-link-check@v1
+        with:
+          use-quiet-mode: 'yes'
+          config-file: '.github/markdown-link-check-config.json'
+          folder-path: 'docs/'
+
+  # Generate coverage report documentation
+  coverage-docs:
+    name: Coverage Documentation
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: ${{ env.PYTHON_VERSION }}
+
+      - name: Install UV
+        run: curl -LsSf https://astral.sh/uv/install.sh | sh
+
+      - name: Install dependencies
+        run: |
+          uv sync --frozen
+
+      - name: Run tests with coverage
+        run: |
+          uv run pytest tests/ --cov=sparql_agent --cov-report=html --cov-report=json
+
+      - name: Generate coverage badge
+        run: |
+          pip install coverage-badge
+          coverage-badge -o coverage.svg -f
+
+      - name: Upload coverage documentation
+        uses: actions/upload-artifact@v4
+        with:
+          name: coverage-docs
+          path: htmlcov/
+
+  # Generate changelog
+  changelog:
+    name: Generate Changelog
+    runs-on: ubuntu-latest
+    if: github.event_name == 'push' && github.ref == 'refs/heads/main'
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Generate changelog
+        uses: orhun/git-cliff-action@v3
+        with:
+          config: cliff.toml
+          args: --verbose
+        env:
+          OUTPUT: CHANGELOG.md
+
+      - name: Commit changelog
+        uses: stefanzweifel/git-auto-commit-action@v5
+        with:
+          commit_message: 'docs: update CHANGELOG.md'
+          file_pattern: CHANGELOG.md
+
+  # Generate contributor documentation
+  contributors:
+    name: Update Contributors
+    runs-on: ubuntu-latest
+    if: github.event_name == 'push' && github.ref == 'refs/heads/main'
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Generate contributors list
+        uses: minicli/action-contributors@v3.3
+        env:
+          CONTRIB_REPOSITORY: ${{ github.repository }}
+          CONTRIB_OUTPUT_FILE: 'docs/CONTRIBUTORS.md'
+
+      - name: Commit contributors
+        uses: stefanzweifel/git-auto-commit-action@v5
+        with:
+          commit_message: 'docs: update contributors list'
+          file_pattern: docs/CONTRIBUTORS.md
+
+  # Deploy versioned documentation
+  deploy-versioned:
+    name: Deploy Versioned Docs
+    runs-on: ubuntu-latest
+    needs: build-docs
+    if: github.event_name == 'release'
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: ${{ env.PYTHON_VERSION }}
+
+      - name: Install UV
+        run: curl -LsSf https://astral.sh/uv/install.sh | sh
+
+      - name: Install dependencies
+        run: |
+          uv sync --frozen
+          uv pip install --system mike mkdocs mkdocs-material
+
+      - name: Configure Git
+        run: |
+          git config user.name github-actions[bot]
+          git config user.email github-actions[bot]@users.noreply.github.com
+
+      - name: Deploy version
+        run: |
+          VERSION=${GITHUB_REF#refs/tags/v}
+          mike deploy --push --update-aliases $VERSION latest
+          mike set-default --push latest
+
+  # Documentation metrics and analytics
+  docs-metrics:
+    name: Documentation Metrics
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Count documentation
+        run: |
+          echo "## Documentation Statistics" > docs-metrics.md
+          echo "" >> docs-metrics.md
+          echo "- Total documentation files: $(find docs -name '*.md' | wc -l)" >> docs-metrics.md
+          echo "- Total lines of documentation: $(find docs -name '*.md' -exec cat {} \; | wc -l)" >> docs-metrics.md
+          echo "- Total Python files: $(find src -name '*.py' | wc -l)" >> docs-metrics.md
+          echo "- Files with docstrings: $(grep -r "\"\"\"" src --include="*.py" | cut -d: -f1 | sort -u | wc -l)" >> docs-metrics.md
+          cat docs-metrics.md
+
+      - name: Upload metrics
+        uses: actions/upload-artifact@v4
+        with:
+          name: docs-metrics
+          path: docs-metrics.md
+
+  # Spell check documentation
+  spellcheck:
+    name: Spell Check
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Run spell checker
+        uses: rojopolis/spellcheck-github-actions@0.35.0
+        with:
+          config_path: .github/spellcheck-config.yml
+          task_name: Markdown
+          output_file: spellcheck-output.txt
+
+      - name: Upload spell check results
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: spellcheck-results
+          path: spellcheck-output.txt
+
+  # Documentation summary
+  docs-summary:
+    name: Documentation Summary
+    runs-on: ubuntu-latest
+    needs:
+      - build-docs
+      - api-docs
+      - docs-quality
+      - coverage-docs
+      - docs-metrics
+    if: always()
+    steps:
+      - name: Generate summary
+        run: |
+          cat << EOF > docs-summary.md
+          # Documentation Build Summary
+
+          **Build Date:** $(date -u +"%Y-%m-%d %H:%M:%S UTC")
+          **Commit:** ${{ github.sha }}
+          **Branch:** ${{ github.ref_name }}
+
+          ## Build Results
+
+          | Task | Status |
+          |------|--------|
+          | Build Docs | ${{ needs.build-docs.result }} |
+          | API Docs | ${{ needs.api-docs.result }} |
+          | Quality Check | ${{ needs.docs-quality.result }} |
+          | Coverage Docs | ${{ needs.coverage-docs.result }} |
+          | Metrics | ${{ needs.docs-metrics.result }} |
+
+          ## Links
+
+          - [Documentation](https://${{ github.repository_owner }}.github.io/${{ github.event.repository.name }}/)
+          - [API Reference](https://${{ github.repository_owner }}.github.io/${{ github.event.repository.name }}/api/)
+          - [Coverage Report](https://${{ github.repository_owner }}.github.io/${{ github.event.repository.name }}/coverage/)
+          EOF
+
+          cat docs-summary.md
+
+      - name: Comment on PR
+        if: github.event_name == 'pull_request'
+        uses: actions/github-script@v7
+        with:
+          script: |
+            const fs = require('fs');
+            const summary = fs.readFileSync('docs-summary.md', 'utf8');
+            github.rest.issues.createComment({
+              issue_number: context.issue.number,
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              body: summary
+            });
+
+      - name: Fail if docs build failed
+        if: needs.build-docs.result == 'failure'
+        run: exit 1

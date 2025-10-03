@@ -1,0 +1,58 @@
+{
+  "endpoint": "https://dbpedia.org/sparql",
+  "namespaces": {
+    "dbo": "http://dbpedia.org/ontology/",
+    "dbr": "http://dbpedia.org/resource/",
+    "dbp": "http://dbpedia.org/property/",
+    "rdfs": "http://www.w3.org/2000/01/rdf-schema#",
+    "rdf": "http://www.w3.org/1999/02/22-rdf-syntax-ns#",
+    "foaf": "http://xmlns.com/foaf/0.1/",
+    "owl": "http://www.w3.org/2002/07/owl#"
+  },
+  "classes": [
+    "dbo:Person",
+    "dbo:Place",
+    "dbo:City",
+    "dbo:Country",
+    "dbo:Film",
+    "dbo:Book",
+    "dbo:Organisation",
+    "dbo:Company"
+  ],
+  "properties": [
+    "rdf:type",
+    "rdfs:label",
+    "dbo:birthPlace",
+    "dbo:birthDate",
+    "dbo:deathDate",
+    "dbo:nationality",
+    "dbo:occupation",
+    "foaf:name",
+    "dbo:abstract",
+    "dbo:wikiPageID"
+  ],
+  "constraints": [
+    {
+      "property": "rdf:type",
+      "description": "links entity to its class",
+      "common_values": ["dbo:Person", "dbo:Place"]
+    },
+    {
+      "property": "dbo:birthPlace",
+      "description": "place where a person was born",
+      "domain": "dbo:Person",
+      "range": "dbo:Place"
+    },
+    {
+      "property": "dbo:birthDate",
+      "description": "date of birth",
+      "domain": "dbo:Person",
+      "range": "date"
+    }
+  ],
+  "examples": {
+    "Person": "dbo:Person",
+    "Paris": "dbr:Paris",
+    "France": "dbr:France"
+  }
+}

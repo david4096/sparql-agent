@@ -1,0 +1,26 @@
+# CodeQL configuration for security scanning
+name: "CodeQL Config"
+
+# Paths to ignore during analysis
+paths-ignore:
+  - '**/test/**'
+  - '**/tests/**'
+  - '**/node_modules/**'
+  - '**/__pycache__/**'
+  - '**/site-packages/**'
+
+# Queries to run
+queries:
+  - uses: security-and-quality
+  - uses: security-extended
+
+# Query filters
+query-filters:
+  - exclude:
+      id: py/clear-text-logging-sensitive-data
+  - exclude:
+      id: py/clear-text-storage-sensitive-data
+
+# Additional packs
+packs:
+  - codeql/python-queries

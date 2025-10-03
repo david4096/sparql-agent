@@ -1,0 +1,296 @@
+# Logging Configuration for SPARQL Agent
+# Python logging configuration using dictConfig format
+
+version: 1
+disable_existing_loggers: false
+
+# Formatters define the layout of log messages
+formatters:
+  standard:
+    format: '%(asctime)s - %(name)s - %(levelname)s - %(message)s'
+    datefmt: '%Y-%m-%d %H:%M:%S'
+
+  detailed:
+    format: '%(asctime)s - %(name)s - %(levelname)s - %(funcName)s:%(lineno)d - %(message)s'
+    datefmt: '%Y-%m-%d %H:%M:%S'
+
+  simple:
+    format: '%(levelname)s - %(message)s'
+
+  # Optional: JSON formatter (requires python-json-logger)
+  # Install with: pip install python-json-logger
+  json:
+    class: pythonjsonlogger.jsonlogger.JsonFormatter
+    format: '%(asctime)s %(name)s %(levelname)s %(funcName)s %(lineno)d %(message)s'
+
+  # Optional: Colored formatter (requires colorlog)
+  # Install with: pip install colorlog
+  colored:
+    class: colorlog.ColoredFormatter
+    format: '%(log_color)s%(asctime)s - %(name)s - %(levelname)s - %(message)s'
+    datefmt: '%Y-%m-%d %H:%M:%S'
+    log_colors:
+      DEBUG: cyan
+      INFO: green
+      WARNING: yellow
+      ERROR: red
+      CRITICAL: bold_red
+
+# Filters for conditional logging
+filters:
+  rate_limit:
+    (): sparql_agent.utils.logging.RateLimitFilter
+    rate: 10
+    per: 60
+
+  sensitive_data:
+    (): sparql_agent.utils.logging.SensitiveDataFilter
+    patterns:
+      - 'password'
+      - 'api_key'
+      - 'secret'
+      - 'token'
+
+# Handlers define where log messages go
+handlers:
+  console:
+    class: logging.StreamHandler
+    level: INFO
+    formatter: standard  # Use standard by default (colored formatter requires colorlog package)
+    stream: ext://sys.stdout
+
+  console_simple:
+    class: logging.StreamHandler
+    level: INFO
+    formatter: simple
+    stream: ext://sys.stdout
+
+  console_colored:
+    class: logging.StreamHandler
+    level: INFO
+    formatter: colored
+    stream: ext://sys.stdout
+
+  file:
+    class: logging.handlers.RotatingFileHandler
+    level: DEBUG
+    formatter: detailed
+    filename: logs/sparql_agent.log
+    maxBytes: 10485760  # 10MB
+    backupCount: 5
+    encoding: utf8
+
+  error_file:
+    class: logging.handlers.RotatingFileHandler
+    level: ERROR
+    formatter: detailed
+    filename: logs/sparql_agent_errors.log
+    maxBytes: 10485760  # 10MB
+    backupCount: 5
+    encoding: utf8
+
+  json_file:
+    class: logging.handlers.RotatingFileHandler
+    level: DEBUG
+    formatter: json
+    filename: logs/sparql_agent.json
+    maxBytes: 10485760  # 10MB
+    backupCount: 5
+    encoding: utf8
+
+  query_file:
+    class: logging.handlers.RotatingFileHandler
+    level: DEBUG
+    formatter: detailed
+    filename: logs/sparql_queries.log
+    maxBytes: 10485760  # 10MB
+    backupCount: 10
+    encoding: utf8
+    filters: [sensitive_data]
+
+  performance_file:
+    class: logging.handlers.RotatingFileHandler
+    level: INFO
+    formatter: json
+    filename: logs/sparql_performance.json
+    maxBytes: 10485760  # 10MB
+    backupCount: 5
+    encoding: utf8
+
+  syslog:
+    class: logging.handlers.SysLogHandler
+    level: WARNING
+    formatter: standard
+    address: /dev/log
+    facility: local0
+
+  # Null handler for disabling logging
+  null:
+    class: logging.NullHandler
+
+# Loggers define logging configuration for specific modules
+loggers:
+  # Main application logger
+  sparql_agent:
+    level: INFO
+    handlers: [console, file]
+    propagate: false
+
+  # Query execution logger
+  sparql_agent.query:
+    level: DEBUG
+    handlers: [console, query_file]
+    propagate: false
+
+  # Ontology service logger
+  sparql_agent.ontology:
+    level: INFO
+    handlers: [console, file]
+    propagate: false
+
+  # LLM integration logger
+  sparql_agent.llm:
+    level: INFO
+    handlers: [console, file]
+    propagate: false
+
+  # Configuration logger
+  sparql_agent.config:
+    level: INFO
+    handlers: [console, file]
+    propagate: false
+
+  # Performance monitoring logger
+  sparql_agent.performance:
+    level: INFO
+    handlers: [performance_file]
+    propagate: false
+
+  # Error tracking logger
+  sparql_agent.errors:
+    level: ERROR
+    handlers: [console, error_file]
+    propagate: false
+
+  # HTTP request logger
+  sparql_agent.http:
+    level: INFO
+    handlers: [file]
+    propagate: false
+    filters: [rate_limit, sensitive_data]
+
+  # Cache logger
+  sparql_agent.cache:
+    level: INFO
+    handlers: [file]
+    propagate: false
+
+  # Third-party library loggers
+  urllib3:
+    level: WARNING
+    handlers: [file]
+    propagate: false
+
+  requests:
+    level: WARNING
+    handlers: [file]
+    propagate: false
+
+  SPARQLWrapper:
+    level: WARNING
+    handlers: [file]
+    propagate: false
+
+  httpx:
+    level: WARNING
+    handlers: [file]
+    propagate: false
+
+# Root logger configuration
+root:
+  level: INFO
+  handlers: [console, file]
+
+# Environment-specific configurations
+environments:
+  development:
+    root_level: DEBUG
+    console_handler: console
+    file_logging: true
+    json_logging: false
+
+  testing:
+    root_level: WARNING
+    console_handler: console_simple
+    file_logging: false
+    json_logging: false
+
+  production:
+    root_level: INFO
+    console_handler: console
+    file_logging: true
+    json_logging: true
+    syslog_enabled: true
+
+  debug:
+    root_level: DEBUG
+    console_handler: console
+    file_logging: true
+    json_logging: true
+    all_modules: DEBUG
+
+# Logging best practices and guidelines
+guidelines:
+  levels:
+    DEBUG: "Detailed information, typically of interest only when diagnosing problems"
+    INFO: "Confirmation that things are working as expected"
+    WARNING: "An indication that something unexpected happened, or indicative of some problem"
+    ERROR: "Due to a more serious problem, the software has not been able to perform some function"
+    CRITICAL: "A serious error, indicating that the program itself may be unable to continue running"
+
+  usage:
+    queries: "Log all SPARQL queries with timing information to query_file"
+    errors: "Log all exceptions with full traceback to error_file"
+    performance: "Log performance metrics to performance_file in JSON format"
+    http: "Log HTTP requests/responses with rate limiting to avoid log flooding"
+    security: "Filter sensitive data (passwords, tokens) from all logs"
+
+  recommendations:
+    - "Use structured logging (JSON) in production for easier parsing and analysis"
+    - "Rotate log files to prevent disk space issues"
+    - "Set appropriate log levels per environment (DEBUG for dev, INFO for prod)"
+    - "Use separate log files for queries, errors, and performance for easier debugging"
+    - "Apply rate limiting to high-frequency loggers to prevent log flooding"
+    - "Filter sensitive data from logs to comply with security requirements"
+    - "Include context (correlation IDs, user IDs) in log messages for traceability"
+
+# Performance monitoring configuration
+performance:
+  enabled: true
+  log_slow_queries: true
+  slow_query_threshold: 5.0  # seconds
+  log_query_plans: false
+  track_metrics:
+    - query_execution_time
+    - result_count
+    - endpoint_response_time
+    - cache_hit_rate
+    - ontology_lookup_time
+
+# Alert configuration
+alerts:
+  enabled: false
+  channels:
+    - type: email
+      recipients: []
+      min_level: ERROR
+    - type: slack
+      webhook_url: ""
+      min_level: CRITICAL
+
+# Log retention policy
+retention:
+  max_age_days: 30
+  max_total_size_mb: 1000
+  compression: true
+  archive_path: logs/archive/

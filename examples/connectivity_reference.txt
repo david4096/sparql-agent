@@ -1,0 +1,227 @@
+================================================================================
+SPARQL ENDPOINT CONNECTIVITY MODULE - QUICK REFERENCE
+================================================================================
+
+LOCATION: /Users/david/git/sparql-agent/src/sparql_agent/discovery/connectivity.py
+
+================================================================================
+BASIC USAGE
+================================================================================
+
+SYNC:
+    from sparql_agent.discovery import EndpointPinger
+
+    pinger = EndpointPinger()
+    health = pinger.ping_sync('https://sparql.uniprot.org/sparql')
+    print(health.status.value, health.response_time_ms)
+    pinger.close_sync()
+
+ASYNC:
+    import asyncio
+    from sparql_agent.discovery import EndpointPinger
+
+    async def check():
+        async with EndpointPinger() as pinger:
+            health = await pinger.ping_async('https://sparql.uniprot.org/sparql')
+            print(health.status.value)
+
+    asyncio.run(check())
+
+================================================================================
+MAIN CLASSES
+================================================================================
+
+EndpointPinger          Main health checker
+EndpointHealth          Health check result
+EndpointStatus          Status enum (HEALTHY, DEGRADED, UNHEALTHY, etc.)
+ConnectionConfig        Configuration options
+ConnectionPool          Connection pool manager
+RateLimiter            Rate limiting
+
+================================================================================
+ENDPOINTPINGER METHODS
+================================================================================
+
+ping_sync(url, check_query=True, config=None)
+    Synchronous ping
+    Returns: EndpointHealth
+
+ping_async(url, check_query=True, config=None)
+    Asynchronous ping
+    Returns: EndpointHealth
+
+ping_multiple_sync(urls, check_query=True, config=None)
+    Ping multiple endpoints sequentially
+    Returns: List[EndpointHealth]
+
+ping_multiple_async(urls, check_query=True, config=None)
+    Ping multiple endpoints concurrently
+    Returns: List[EndpointHealth]
+
+record_health(health)
+    Record health in history
+
+get_health_history(url)
+    Get health history for endpoint
+    Returns: List[EndpointHealth]
+
+get_uptime_percentage(url, time_window=None)
+    Calculate uptime percentage
+    Returns: float (0-100)
+
+get_average_response_time(url, time_window=None)
+    Calculate average response time
+    Returns: float (milliseconds)
+
+close_sync()
+    Close sync resources
+
+close_async()
+    Close async resources
+
+================================================================================
+ENDPOINTHEALTH ATTRIBUTES
+================================================================================
+
+endpoint_url            SPARQL endpoint URL
+status                  EndpointStatus enum
+response_time_ms        Response time in milliseconds
+status_code             HTTP status code
+ssl_valid               SSL certificate validity
+ssl_expiry              SSL expiry datetime
+error_message           Error description
+timestamp               Check timestamp
+server_info             Dict of server headers
+capabilities            List of capabilities
+
+to_dict()               Convert to dictionary for JSON export
+
+================================================================================
+ENDPOINTSTATUS VALUES
+================================================================================
+
+HEALTHY                 Responding normally (< 1s)
+DEGRADED                Slow but functional (1-5s)
+UNHEALTHY               Having issues (> 5s or errors)
+UNREACHABLE             Connection failed
+TIMEOUT                 Request timed out
+SSL_ERROR               SSL/TLS certificate issues
+AUTH_REQUIRED           Authentication needed (401)
+AUTH_FAILED             Authentication failed (403)
+
+================================================================================
+CONNECTIONCONFIG OPTIONS
+================================================================================
+
+timeout                 Timeout in seconds (default: 10.0)
+verify_ssl              Verify SSL certificates (default: True)
+follow_redirects        Follow HTTP redirects (default: True)
+max_redirects           Maximum redirects (default: 5)
+user_agent              Custom user agent
+auth                    Tuple (username, password) for Basic Auth
+headers                 Dict of custom headers
+retry_attempts          Number of retry attempts (default: 3)
+retry_delay             Initial retry delay in seconds (default: 1.0)
+retry_backoff           Exponential backoff multiplier (default: 2.0)
+
+EXAMPLE:
+    config = ConnectionConfig(
+        timeout=15.0,
+        retry_attempts=3,
+        auth=("user", "pass")
+    )
+
+================================================================================
+COMMON PATTERNS
+================================================================================
+
+1. CHECK BEFORE QUERY:
+    with EndpointPinger() as pinger:
+        health = pinger.ping_sync(url, check_query=False)
+        if health.status == EndpointStatus.HEALTHY:
+            # Execute your SPARQL query
+
+2. CONCURRENT CHECKS:
+    async with EndpointPinger() as pinger:
+        results = await pinger.ping_multiple_async(endpoints)
+
+3. RATE LIMITED:
+    # 2 requests/second, burst of 5
+    async with EndpointPinger(rate_limit=(2.0, 5)) as pinger:
+        results = await pinger.ping_multiple_async(endpoints)
+
+4. WITH RETRIES:
+    config = ConnectionConfig(retry_attempts=5, retry_delay=2.0)
+    with EndpointPinger(config=config) as pinger:
+        health = pinger.ping_sync(url)
+
+5. TRACK UPTIME:
+    with EndpointPinger() as pinger:
+        for _ in range(10):
+            health = pinger.ping_sync(url)
+            pinger.record_health(health)
+
+        uptime = pinger.get_uptime_percentage(url)
+        print(f"Uptime: {uptime:.1f}%")
+
+6. CHOOSE FASTEST:
+    async with EndpointPinger() as pinger:
+        results = await pinger.ping_multiple_async(endpoints)
+        fastest = min(results, key=lambda x: x.response_time_ms or float('inf'))
+
+================================================================================
+TEST ENDPOINTS
+================================================================================
+
+PDB:        https://rdfportal.org/pdb/sparql
+UniProt:    https://sparql.uniprot.org/sparql
+EBI:        https://www.ebi.ac.uk/rdf/services/sparql
+
+================================================================================
+ERROR HANDLING
+================================================================================
+
+from sparql_agent.discovery import EndpointPinger, EndpointStatus
+
+with EndpointPinger() as pinger:
+    health = pinger.ping_sync(url)
+
+    if health.status == EndpointStatus.UNREACHABLE:
+        print(f"Cannot reach: {health.error_message}")
+    elif health.status == EndpointStatus.TIMEOUT:
+        print(f"Timeout: {health.error_message}")
+    elif health.status == EndpointStatus.SSL_ERROR:
+        print(f"SSL error: {health.error_message}")
+    elif health.status in [EndpointStatus.HEALTHY, EndpointStatus.DEGRADED]:
+        print("Endpoint is available")
+
+================================================================================
+PERFORMANCE TIPS
+================================================================================
+
+1. Use async for multiple endpoints
+2. Use HEAD requests (check_query=False) for speed
+3. Configure appropriate timeouts
+4. Use connection pooling (automatic)
+5. Set rate limits to respect endpoints
+6. Reuse EndpointPinger instances
+
+================================================================================
+DEPENDENCIES
+================================================================================
+
+httpx >= 0.27.0         For async operations
+requests >= 2.31.0      For sync operations
+
+Install: pip install httpx requests
+
+================================================================================
+MORE INFO
+================================================================================
+
+Documentation:  CONNECTIVITY_README.md
+Examples:       examples/connectivity_examples.py
+Quick Start:    examples/connectivity_quickstart.py
+Tests:          test_connectivity.py
+
+================================================================================

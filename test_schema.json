@@ -1,0 +1,53 @@
+{
+  "endpoint": "https://query.wikidata.org/sparql",
+  "namespaces": {
+    "wd": "http://www.wikidata.org/entity/",
+    "wdt": "http://www.wikidata.org/prop/direct/",
+    "wikibase": "http://wikiba.se/ontology#",
+    "bd": "http://www.bigdata.com/rdf#",
+    "rdfs": "http://www.w3.org/2000/01/rdf-schema#",
+    "rdf": "http://www.w3.org/1999/02/22-rdf-syntax-ns#"
+  },
+  "classes": [
+    "wd:Q5",
+    "wd:Q515",
+    "wd:Q6256",
+    "wd:Q11424",
+    "wd:Q571"
+  ],
+  "properties": [
+    "wdt:P31",
+    "wdt:P19",
+    "wdt:P569",
+    "wdt:P570",
+    "wdt:P27",
+    "wdt:P106",
+    "wdt:P735",
+    "wdt:P734",
+    "rdfs:label"
+  ],
+  "constraints": [
+    {
+      "property": "wdt:P31",
+      "description": "instance of - links entity to its class",
+      "common_values": ["wd:Q5"]
+    },
+    {
+      "property": "wdt:P19",
+      "description": "place of birth",
+      "domain": "wd:Q5",
+      "range": "location"
+    },
+    {
+      "property": "wdt:P569",
+      "description": "date of birth",
+      "domain": "wd:Q5",
+      "range": "datetime"
+    }
+  ],
+  "examples": {
+    "human": "wd:Q5",
+    "Paris": "wd:Q90",
+    "France": "wd:Q142"
+  }
+}

@@ -1,0 +1,8 @@
+# Kubernetes Namespace for SPARQL Agent
+apiVersion: v1
+kind: Namespace
+metadata:
+  name: sparql-agent
+  labels:
+    name: sparql-agent
+    app: sparql-agent

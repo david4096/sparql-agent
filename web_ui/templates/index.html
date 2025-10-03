@@ -1,0 +1,125 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>SPARQL Agent - Chat UI</title>
+    <link rel="stylesheet" href="{{ url_for('static', filename='css/style.css') }}">
+    <link href="https://cdnjs.cloudflare.com/ajax/libs/prism/1.25.0/themes/prism.min.css" rel="stylesheet" />
+    <link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><text y='.9em' font-size='90'>🔍</text></svg>">
+</head>
+<body>
+    <div class="container">
+        <!-- Header -->
+        <header class="header">
+            <div class="header-content">
+                <h1>🔍 SPARQL Agent</h1>
+                <p>Natural Language to SPARQL Query Interface</p>
+                <div class="endpoint-selector">
+                    <label for="endpoint">SPARQL Endpoint:</label>
+                    <select id="endpoint" class="endpoint-select">
+                        {% for name, url in endpoints.items() %}
+                        <option value="{{ url }}" {% if loop.first %}selected{% endif %}>
+                            {{ name }}
+                        </option>
+                        {% endfor %}
+                    </select>
+                    <button id="test-endpoint" class="btn btn-secondary">Test</button>
+                </div>
+                <div id="endpoint-status" class="endpoint-status"></div>
+            </div>
+        </header>
+
+        <!-- Main Content -->
+        <main class="main-content">
+            <!-- Chat Messages -->
+            <div id="chat-messages" class="chat-messages">
+                <div class="message system-message">
+                    <div class="message-content">
+                        <p>👋 Welcome to the SPARQL Agent! Type a natural language query to get started.</p>
+                        <div class="example-queries">
+                            <h4>Example queries:</h4>
+                            <ul>
+                                <li><button class="example-btn" data-query="Find 10 people born in Paris">Find 10 people born in Paris</button></li>
+                                <li><button class="example-btn" data-query="Show me proteins involved in diabetes">Show me proteins involved in diabetes</button></li>
+                                <li><button class="example-btn" data-query="List countries with their capitals">List countries with their capitals</button></li>
+                                <li><button class="example-btn" data-query="Find ontology terms related to cancer">Find ontology terms related to cancer</button></li>
+                            </ul>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Query Input -->
+            <div class="query-input-container">
+                <div class="query-input">
+                    <textarea id="query-text" placeholder="Enter your natural language query..." rows="1"></textarea>
+                    <button id="send-query" class="btn btn-primary">Send</button>
+                </div>
+                <div class="input-actions">
+                    <button id="clear-chat" class="btn btn-secondary">Clear Chat</button>
+                    <button id="export-results" class="btn btn-secondary" disabled>Export Results</button>
+                    <label class="toggle-container">
+                        <input type="checkbox" id="auto-execute" checked>
+                        <span class="toggle-label">Auto-execute SPARQL</span>
+                    </label>
+                </div>
+            </div>
+        </main>
+
+        <!-- Loading Overlay -->
+        <div id="loading-overlay" class="loading-overlay hidden">
+            <div class="loading-spinner">
+                <div class="spinner"></div>
+                <p>Processing query...</p>
+            </div>
+        </div>
+    </div>
+
+    <!-- Result Modal -->
+    <div id="result-modal" class="modal hidden">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h3>Query Results</h3>
+                <button class="modal-close">&times;</button>
+            </div>
+            <div class="modal-body">
+                <div class="result-tabs">
+                    <button class="tab-btn active" data-tab="table">Table</button>
+                    <button class="tab-btn" data-tab="explanation" id="explanation-tab" style="display: none;">Explanation</button>
+                    <button class="tab-btn" data-tab="sparql">SPARQL</button>
+                    <button class="tab-btn" data-tab="json">JSON</button>
+                    <button class="tab-btn" data-tab="visualization" id="viz-tab" style="display: none;">Chart</button>
+                </div>
+                <div class="tab-content">
+                    <div id="table-content" class="tab-panel active"></div>
+                    <div id="explanation-content" class="tab-panel">
+                        <div class="explanation-text" id="explanation-text"></div>
+                    </div>
+                    <div id="sparql-content" class="tab-panel">
+                        <pre><code class="language-sparql" id="sparql-code"></code></pre>
+                    </div>
+                    <div id="json-content" class="tab-panel">
+                        <pre><code class="language-json" id="json-code"></code></pre>
+                    </div>
+                    <div id="visualization-content" class="tab-panel">
+                        <canvas id="chart-canvas" style="max-height: 400px;"></canvas>
+                    </div>
+                </div>
+            </div>
+            <div class="modal-footer">
+                <button id="download-csv" class="btn btn-secondary">Download CSV</button>
+                <button id="download-json" class="btn btn-secondary">Download JSON</button>
+                <button class="btn btn-primary modal-close">Close</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- Scripts -->
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/prism/1.25.0/components/prism-core.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/prism/1.25.0/components/prism-sparql.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/prism/1.25.0/components/prism-json.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+    <script src="{{ url_for('static', filename='js/app.js') }}"></script>
+</body>
+</html>

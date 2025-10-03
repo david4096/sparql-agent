@@ -1,0 +1,170 @@
+site_name: SPARQL Agent Documentation
+site_description: An intelligent SPARQL query agent with OWL ontology support and LLM integration
+site_author: David
+site_url: https://github.com/yourusername/sparql-agent
+repo_name: yourusername/sparql-agent
+repo_url: https://github.com/yourusername/sparql-agent
+edit_uri: edit/main/docs/
+
+copyright: Copyright &copy; 2024 David
+
+theme:
+  name: material
+  palette:
+    # Palette toggle for light mode
+    - scheme: default
+      primary: indigo
+      accent: indigo
+      toggle:
+        icon: material/brightness-7
+        name: Switch to dark mode
+    # Palette toggle for dark mode
+    - scheme: slate
+      primary: indigo
+      accent: indigo
+      toggle:
+        icon: material/brightness-4
+        name: Switch to light mode
+  features:
+    - navigation.tabs
+    - navigation.sections
+    - navigation.expand
+    - navigation.top
+    - navigation.tracking
+    - navigation.indexes
+    - search.suggest
+    - search.highlight
+    - search.share
+    - content.code.copy
+    - content.code.annotate
+    - content.tabs.link
+    - toc.follow
+  icon:
+    repo: fontawesome/brands/github
+  font:
+    text: Roboto
+    code: Roboto Mono
+
+extra:
+  social:
+    - icon: fontawesome/brands/github
+      link: https://github.com/yourusername/sparql-agent
+    - icon: fontawesome/brands/python
+      link: https://pypi.org/project/sparql-agent/
+  version:
+    provider: mike
+    default: latest
+
+plugins:
+  - search:
+      separator: '[\s\-,:!=\[\]()"`/]+|\.(?!\d)|&[lg]t;|(?!\b)(?=[A-Z][a-z])'
+  - autorefs
+  - mkdocstrings:
+      default_handler: python
+      handlers:
+        python:
+          options:
+            docstring_style: google
+            show_source: true
+            show_root_heading: true
+            show_root_full_path: false
+            show_signature_annotations: true
+            separate_signature: true
+            merge_init_into_class: true
+            docstring_section_style: table
+  - minify:
+      minify_html: true
+  - git-revision-date-localized:
+      enable_creation_date: true
+      type: timeago
+
+markdown_extensions:
+  - abbr
+  - admonition
+  - attr_list
+  - def_list
+  - footnotes
+  - md_in_html
+  - tables
+  - toc:
+      permalink: true
+      toc_depth: 3
+  - pymdownx.arithmatex:
+      generic: true
+  - pymdownx.betterem:
+      smart_enable: all
+  - pymdownx.caret
+  - pymdownx.details
+  - pymdownx.emoji:
+      emoji_index: !!python/name:material.extensions.emoji.twemoji
+      emoji_generator: !!python/name:material.extensions.emoji.to_svg
+  - pymdownx.highlight:
+      anchor_linenums: true
+      line_spans: __span
+      pygments_lang_class: true
+  - pymdownx.inlinehilite
+  - pymdownx.keys
+  - pymdownx.mark
+  - pymdownx.smartsymbols
+  - pymdownx.snippets
+  - pymdownx.superfences:
+      custom_fences:
+        - name: mermaid
+          class: mermaid
+          format: !!python/name:pymdownx.superfences.fence_code_format
+  - pymdownx.tabbed:
+      alternate_style: true
+  - pymdownx.tasklist:
+      custom_checkbox: true
+  - pymdownx.tilde
+
+nav:
+  - Home: index.md
+  - Getting Started:
+    - Installation: installation.md
+    - Quick Start: quickstart.md
+    - Configuration: configuration.md
+  - User Guide:
+    - CLI Reference: cli.md
+    - Python API: api.md
+    - Web API: web-api.md
+    - MCP Integration: mcp.md
+    - Batch Processing: batch-processing.md
+  - Tutorials:
+    - Basic SPARQL Queries: tutorials/tutorial-basic.md
+    - Working with Ontologies: tutorials/tutorial-ontology.md
+    - Federation & Cross-Dataset Queries: tutorials/tutorial-federation.md
+    - Natural Language to SPARQL: tutorials/tutorial-llm.md
+    - Advanced Querying: tutorials/tutorial-advanced.md
+  - Examples:
+    - Jupyter Notebooks: examples/notebooks.md
+    - Biomedical Use Cases: examples/biomedical.md
+    - Integration Examples: examples/integrations.md
+    - Code Samples: examples/code-samples.md
+  - Developer Guide:
+    - Architecture: architecture.md
+    - Contributing: contributing.md
+    - Testing: testing.md
+    - Deployment: deployment.md
+    - Troubleshooting: troubleshooting.md
+  - API Reference:
+    - Core: api/core.md
+    - Discovery: api/discovery.md
+    - Schema: api/schema.md
+    - Ontology: api/ontology.md
+    - LLM: api/llm.md
+    - Query: api/query.md
+    - Execution: api/execution.md
+    - Formatting: api/formatting.md
+    - MCP: api/mcp.md
+    - CLI: api/cli.md
+    - Web: api/web.md
+  - Best Practices:
+    - Performance Optimization: best-practices/performance.md
+    - Security: best-practices/security.md
+    - Monitoring: best-practices/monitoring.md
+    - Production Deployment: best-practices/production.md
+  - About:
+    - Release Notes: release-notes.md
+    - License: license.md
+    - Citation: citation.md

@@ -1,0 +1,43 @@
+[
+  {
+    "id": "query_001",
+    "query": "SELECT ?s ?p ?o WHERE { ?s ?p ?o } LIMIT 10",
+    "metadata": {
+      "description": "Basic triple pattern",
+      "expected_results": 10
+    }
+  },
+  {
+    "id": "query_002",
+    "query": "Find all proteins from human",
+    "metadata": {
+      "description": "Natural language query",
+      "type": "natural_language"
+    }
+  },
+  {
+    "id": "query_003",
+    "query": "SELECT ?protein ?name WHERE { ?protein a <http://purl.uniprot.org/core/Protein> . ?protein <http://purl.uniprot.org/core/name> ?name } LIMIT 20",
+    "metadata": {
+      "description": "Protein query with name",
+      "ontology": "uniprot"
+    }
+  },
+  {
+    "id": "query_004",
+    "query": "Show diseases related to diabetes",
+    "metadata": {
+      "description": "Disease relationship query",
+      "type": "natural_language",
+      "domain": "medical"
+    }
+  },
+  {
+    "id": "query_005",
+    "query": "SELECT DISTINCT ?class WHERE { ?s a ?class } LIMIT 50",
+    "metadata": {
+      "description": "Get all classes in dataset",
+      "pattern": "type_discovery"
+    }
+  }
+]

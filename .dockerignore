@@ -1,0 +1,251 @@
+# Docker ignore file for SPARQL Agent
+# Excludes unnecessary files from Docker build context for faster builds
+
+# Python
+__pycache__/
+*.py[cod]
+*$py.class
+*.so
+.Python
+build/
+develop-eggs/
+dist/
+downloads/
+eggs/
+.eggs/
+lib/
+lib64/
+parts/
+sdist/
+var/
+wheels/
+*.egg-info/
+.installed.cfg
+*.egg
+MANIFEST
+pip-log.txt
+pip-delete-this-directory.txt
+
+# Virtual environments
+venv/
+env/
+ENV/
+.venv/
+.env/
+
+# Testing
+.tox/
+.coverage
+.coverage.*
+.cache
+.pytest_cache/
+nosetests.xml
+coverage.xml
+*.cover
+.hypothesis/
+htmlcov/
+.benchmarks/
+
+# IDEs
+.vscode/
+.idea/
+*.swp
+*.swo
+*.swn
+*.bak
+*~
+.DS_Store
+Thumbs.db
+
+# Jupyter
+.ipynb_checkpoints/
+*.ipynb
+notebooks/
+
+# Documentation
+docs/_build/
+docs/.doctrees/
+site/
+mkdocs.yml
+
+# Git
+.git/
+.gitignore
+.gitattributes
+.github/
+
+# CI/CD (exclude from image, included in separate CI builds)
+.gitlab-ci.yml
+.travis.yml
+azure-pipelines.yml
+.circleci/
+
+# Development files
+dev-data/
+dev-logs/
+dev-cache/
+*.md
+!README.md
+LICENSE
+CHANGELOG.md
+CONTRIBUTING.md
+CODE_OF_CONDUCT.md
+
+# Logs
+*.log
+logs/
+*.out
+*.err
+
+# Data directories (mount as volumes instead)
+data/
+cache/
+.cache/
+tmp/
+temp/
+
+# Docker files (no need in image)
+Dockerfile*
+docker-compose*.yml
+.dockerignore
+
+# Scripts (include selectively)
+scripts/
+*.sh
+!docker/*.sh
+
+# Configuration examples
+*.example
+*.sample
+.env.example
+config.example.yaml
+
+# Testing and examples
+tests/
+examples/
+test_*.py
+*_test.py
+example_*.py
+*_example.py
+example_usage.py
+test_connectivity.py
+test_connectivity_standalone.py
+test_shex_direct.py
+test_shex_standalone.py
+test_uniprot_endpoint.py
+test_validators_standalone.py
+debug_*.py
+
+# Project documentation
+PROJECT_STRUCTURE.md
+QUICKSTART*.md
+*_SUMMARY.md
+*_COMPLETE.md
+*_README.md
+*_IMPLEMENTATION*.md
+*_INDEX.md
+*_REFERENCE.md
+*_USAGE_EXAMPLES.md
+*_CHEATSHEET.md
+*_SETUP.md
+UV_*.md
+AGENT_*.md
+CLI_*.md
+CONNECTIVITY_*.md
+IMPLEMENTATION_*.md
+INTERACTIVE_*.md
+SHEX_*.md
+UNIPROT_*.md
+
+# Build artifacts
+*.pyc
+*.pyo
+*.pyd
+.Python
+pip-log.txt
+
+# UV lock file (included in image)
+# uv.lock
+
+# Package manager files (keep these)
+# pyproject.toml
+# requirements.txt
+# requirements-dev.txt
+
+# Kubernetes and deployment
+k8s/
+kubernetes/
+helm/
+charts/
+
+# Monitoring and observability
+prometheus/
+grafana/
+
+# Secrets and credentials
+*.key
+*.pem
+*.crt
+*.p12
+*.pfx
+secrets/
+credentials/
+.secrets/
+.env
+.env.local
+.env.*.local
+
+# Database
+*.db
+*.sqlite
+*.sqlite3
+
+# OS files
+.DS_Store
+.DS_Store?
+._*
+.Spotlight-V100
+.Trashes
+ehthumbs.db
+Thumbs.db
+
+# Backups
+*.bak
+*.backup
+*.old
+*.orig
+
+# Compressed files (unless needed)
+*.tar
+*.tar.gz
+*.tgz
+*.zip
+*.rar
+*.7z
+*.gz
+*.bz2
+*.xz
+
+# Media files (unless explicitly needed)
+*.mp4
+*.avi
+*.mov
+*.mp3
+*.wav
+*.jpg
+*.jpeg
+*.png
+*.gif
+*.svg
+*.ico
+
+# Large data files
+*.csv
+*.json
+*.xml
+*.rdf
+*.ttl
+*.owl
+!src/**/*.json
+!src/**/*.yaml
+!src/**/*.yml

@@ -1,0 +1,190 @@
+# Example GitLab CI configuration for integration tests
+# Copy this to .gitlab-ci.yml in project root
+
+stages:
+  - test-smoke
+  - test-fast
+  - test-full
+  - test-performance
+
+variables:
+  PIP_CACHE_DIR: "$CI_PROJECT_DIR/.cache/pip"
+  UV_CACHE_DIR: "$CI_PROJECT_DIR/.cache/uv"
+
+# Cache dependencies
+cache:
+  paths:
+    - .cache/pip
+    - .cache/uv
+    - .venv/
+
+# Template for Python setup
+.python-setup:
+  image: python:3.11
+  before_script:
+    - curl -LsSf https://astral.sh/uv/install.sh | sh
+    - export PATH="$HOME/.cargo/bin:$PATH"
+    - cd tests/integration
+    - uv sync --dev
+
+# Smoke tests - run on every commit
+smoke-tests:
+  extends: .python-setup
+  stage: test-smoke
+  script:
+    - ./run_tests.sh smoke
+  artifacts:
+    when: always
+    reports:
+      junit: test-results/smoke.xml
+    paths:
+      - test-results/
+    expire_in: 1 week
+
+# Fast integration tests - run on MR
+fast-integration-tests:
+  extends: .python-setup
+  stage: test-fast
+  rules:
+    - if: '$CI_PIPELINE_SOURCE == "merge_request_event"'
+    - if: '$CI_COMMIT_BRANCH == "main"'
+    - if: '$CI_COMMIT_BRANCH == "develop"'
+  script:
+    - uv run pytest . -m "integration and not slow" -v --tb=short
+      --junit-xml=../../test-results/fast.xml
+  allow_failure: true  # Don't fail pipeline if endpoints are down
+  artifacts:
+    when: always
+    reports:
+      junit: test-results/fast.xml
+    paths:
+      - test-results/
+    expire_in: 1 week
+
+# Endpoint-specific tests (parallel)
+.endpoint-test-template:
+  extends: .python-setup
+  stage: test-fast
+  allow_failure: true
+  artifacts:
+    when: always
+    paths:
+      - test-results/
+    expire_in: 1 week
+
+uniprot-tests:
+  extends: .endpoint-test-template
+  script:
+    - ./run_tests.sh uniprot
+
+rdfportal-tests:
+  extends: .endpoint-test-template
+  script:
+    - ./run_tests.sh rdfportal
+
+ols4-tests:
+  extends: .endpoint-test-template
+  script:
+    - ./run_tests.sh ols4
+
+clinvar-tests:
+  extends: .endpoint-test-template
+  script:
+    - ./run_tests.sh clinvar
+
+# Full integration tests - scheduled
+full-integration-tests:
+  extends: .python-setup
+  stage: test-full
+  rules:
+    - if: '$CI_PIPELINE_SOURCE == "schedule"'
+    - if: '$CI_PIPELINE_SOURCE == "web"'  # Manual trigger
+  script:
+    - uv run pytest . -m integration -v --tb=short
+      --junit-xml=../../test-results/full.xml
+  allow_failure: true
+  timeout: 30m
+  artifacts:
+    when: always
+    reports:
+      junit: test-results/full.xml
+    paths:
+      - test-results/
+    expire_in: 2 weeks
+
+# Performance tests - scheduled
+performance-tests:
+  extends: .python-setup
+  stage: test-performance
+  rules:
+    - if: '$CI_PIPELINE_SOURCE == "schedule"'
+    - if: '$CI_PIPELINE_SOURCE == "web"'
+  script:
+    - uv run pytest . -m performance -v --tb=short
+      --junit-xml=../../test-results/performance.xml
+  allow_failure: true
+  timeout: 20m
+  artifacts:
+    when: always
+    reports:
+      junit: test-results/performance.xml
+    paths:
+      - test-results/
+    expire_in: 2 weeks
+
+# Workflow tests
+workflow-tests:
+  extends: .python-setup
+  stage: test-fast
+  rules:
+    - if: '$CI_COMMIT_BRANCH == "main"'
+    - if: '$CI_COMMIT_BRANCH == "develop"'
+  script:
+    - ./run_tests.sh workflows
+  allow_failure: true
+  artifacts:
+    when: always
+    paths:
+      - test-results/
+    expire_in: 1 week
+
+# Regression tests
+regression-tests:
+  extends: .python-setup
+  stage: test-fast
+  script:
+    - uv run pytest . -m regression -v --tb=short
+  allow_failure: true
+  artifacts:
+    when: always
+    paths:
+      - test-results/
+    expire_in: 1 week
+
+# Error recovery tests
+error-recovery-tests:
+  extends: .python-setup
+  stage: test-fast
+  script:
+    - ./run_tests.sh error
+  allow_failure: true
+  artifacts:
+    when: always
+    paths:
+      - test-results/
+    expire_in: 1 week
+
+# Coverage report (optional)
+coverage-report:
+  extends: .python-setup
+  stage: test-full
+  rules:
+    - if: '$CI_COMMIT_BRANCH == "main"'
+  script:
+    - ./run_tests.sh coverage
+  coverage: '/TOTAL.*\s+(\d+%)$/'
+  artifacts:
+    when: always
+    paths:
+      - htmlcov/
+    expire_in: 1 month

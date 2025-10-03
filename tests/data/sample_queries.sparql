@@ -1,0 +1,85 @@
+# Sample SPARQL Queries for Testing
+# This file contains various SPARQL query patterns for test cases
+
+# Query 1: Simple SELECT
+SELECT ?subject ?predicate ?object
+WHERE {
+    ?subject ?predicate ?object
+}
+LIMIT 10
+
+# Query 2: SELECT with FILTER
+SELECT ?person ?name ?age
+WHERE {
+    ?person a <http://xmlns.com/foaf/0.1/Person> ;
+            <http://xmlns.com/foaf/0.1/name> ?name ;
+            <http://xmlns.com/foaf/0.1/age> ?age .
+    FILTER (?age > 25)
+}
+
+# Query 3: ASK query
+ASK {
+    ?person a <http://xmlns.com/foaf/0.1/Person>
+}
+
+# Query 4: CONSTRUCT query
+CONSTRUCT {
+    ?person <http://xmlns.com/foaf/0.1/name> ?name
+}
+WHERE {
+    ?person a <http://xmlns.com/foaf/0.1/Person> ;
+            <http://xmlns.com/foaf/0.1/name> ?name
+}
+
+# Query 5: DESCRIBE query
+DESCRIBE <http://example.org/Alice>
+
+# Query 6: Aggregation query
+SELECT (COUNT(?person) AS ?personCount)
+WHERE {
+    ?person a <http://xmlns.com/foaf/0.1/Person>
+}
+
+# Query 7: Query with OPTIONAL
+SELECT ?person ?name ?email
+WHERE {
+    ?person a <http://xmlns.com/foaf/0.1/Person> ;
+            <http://xmlns.com/foaf/0.1/name> ?name .
+    OPTIONAL {
+        ?person <http://xmlns.com/foaf/0.1/mbox> ?email
+    }
+}
+
+# Query 8: Query with UNION
+SELECT ?entity
+WHERE {
+    {
+        ?entity a <http://xmlns.com/foaf/0.1/Person>
+    }
+    UNION
+    {
+        ?entity a <http://xmlns.com/foaf/0.1/Organization>
+    }
+}
+
+# Query 9: Query with property path
+SELECT ?person ?ancestor
+WHERE {
+    ?person <http://xmlns.com/foaf/0.1/knows>+ ?ancestor
+}
+
+# Query 10: Complex query with multiple patterns
+PREFIX foaf: <http://xmlns.com/foaf/0.1/>
+PREFIX ex: <http://example.org/>
+
+SELECT ?person ?name ?employer ?employerName
+WHERE {
+    ?person a foaf:Person ;
+            foaf:name ?name ;
+            ex:worksFor ?employer .
+    ?employer a foaf:Organization ;
+              foaf:name ?employerName .
+    FILTER (STRLEN(?name) > 5)
+}
+ORDER BY ?name
+LIMIT 100

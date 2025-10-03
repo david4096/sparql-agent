@@ -1,0 +1,15 @@
+# Configuration System Requirements
+# Install with: pip install -r requirements.txt
+
+# Core dependencies
+pydantic>=2.0.0          # Settings validation and management
+pydantic-settings>=2.0.0  # Environment variable support
+pyyaml>=6.0              # YAML file parsing
+
+# Optional logging enhancements
+python-json-logger>=2.0.0  # JSON structured logging
+colorlog>=6.0.0            # Colored console output
+
+# Type checking (development)
+mypy>=1.0.0              # Static type checking
+types-PyYAML>=6.0.0      # Type stubs for PyYAML

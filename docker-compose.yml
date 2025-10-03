@@ -1,0 +1,348 @@
+# Docker Compose configuration for SPARQL Agent Production Stack
+# Complete orchestration with API, MCP server, Redis cache, and Nginx
+
+version: '3.8'
+
+services:
+  # =============================================================================
+  # SPARQL Agent API - FastAPI Web Server
+  # =============================================================================
+  sparql-agent-api:
+    build:
+      context: .
+      dockerfile: Dockerfile
+      target: runtime
+      args:
+        VERSION: ${VERSION:-0.1.0}
+        BUILD_DATE: ${BUILD_DATE:-}
+        VCS_REF: ${VCS_REF:-}
+    image: sparql-agent:${VERSION:-latest}
+    container_name: sparql-agent-api
+    restart: unless-stopped
+
+    ports:
+      - "${API_PORT:-8000}:8000"
+
+    environment:
+      # Application settings
+      SPARQL_AGENT_HOST: 0.0.0.0
+      SPARQL_AGENT_PORT: 8000
+      SPARQL_AGENT_WORKERS: ${API_WORKERS:-4}
+      SPARQL_AGENT_LOG_LEVEL: ${LOG_LEVEL:-INFO}
+
+      # LLM Configuration
+      ANTHROPIC_API_KEY: ${ANTHROPIC_API_KEY:-}
+      OPENAI_API_KEY: ${OPENAI_API_KEY:-}
+      SPARQL_AGENT_LLM_PROVIDER: ${LLM_PROVIDER:-anthropic}
+      SPARQL_AGENT_LLM_MODEL: ${LLM_MODEL:-claude-3-5-sonnet-20241022}
+
+      # Redis cache (if enabled)
+      REDIS_ENABLED: ${REDIS_ENABLED:-true}
+      REDIS_HOST: redis
+      REDIS_PORT: 6379
+      REDIS_DB: 0
+
+      # Security
+      API_KEY_ENABLED: ${API_KEY_ENABLED:-false}
+      API_KEY: ${API_KEY:-}
+      CORS_ORIGINS: ${CORS_ORIGINS:-*}
+
+      # Performance
+      SPARQL_AGENT_CACHE_ENABLED: ${CACHE_ENABLED:-true}
+      SPARQL_AGENT_CACHE_TTL: ${CACHE_TTL:-3600}
+
+      # Endpoints
+      DEFAULT_SPARQL_ENDPOINT: ${DEFAULT_SPARQL_ENDPOINT:-https://sparql.uniprot.org/sparql}
+
+      # OLS4 Ontology Service
+      OLS_API_BASE_URL: ${OLS_API_BASE_URL:-https://www.ebi.ac.uk/ols4/api}
+
+    volumes:
+      - ./data:/app/data
+      - ./logs:/app/logs
+      - ./cache:/app/.cache
+
+    depends_on:
+      redis:
+        condition: service_healthy
+
+    networks:
+      - sparql-agent-network
+
+    healthcheck:
+      test: ["CMD", "/app/healthcheck.sh"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 40s
+
+    labels:
+      - "com.sparql-agent.service=api"
+      - "com.sparql-agent.version=${VERSION:-latest}"
+
+    # Resource limits
+    deploy:
+      resources:
+        limits:
+          cpus: '${API_CPU_LIMIT:-2.0}'
+          memory: ${API_MEMORY_LIMIT:-2G}
+        reservations:
+          cpus: '${API_CPU_RESERVATION:-0.5}'
+          memory: ${API_MEMORY_RESERVATION:-512M}
+
+  # =============================================================================
+  # SPARQL Agent MCP Server - Model Context Protocol
+  # =============================================================================
+  sparql-agent-mcp:
+    build:
+      context: .
+      dockerfile: Dockerfile
+      target: mcp-server
+    image: sparql-agent:mcp-${VERSION:-latest}
+    container_name: sparql-agent-mcp
+    restart: unless-stopped
+
+    ports:
+      - "${MCP_PORT:-3000}:3000"
+
+    environment:
+      SPARQL_AGENT_MODE: mcp
+      SPARQL_AGENT_PORT: 3000
+      SPARQL_AGENT_LOG_LEVEL: ${LOG_LEVEL:-INFO}
+
+      # LLM Configuration
+      ANTHROPIC_API_KEY: ${ANTHROPIC_API_KEY:-}
+      OPENAI_API_KEY: ${OPENAI_API_KEY:-}
+      SPARQL_AGENT_LLM_PROVIDER: ${LLM_PROVIDER:-anthropic}
+
+      # Redis cache
+      REDIS_ENABLED: ${REDIS_ENABLED:-true}
+      REDIS_HOST: redis
+      REDIS_PORT: 6379
+      REDIS_DB: 1
+
+      # OLS4
+      OLS_API_BASE_URL: ${OLS_API_BASE_URL:-https://www.ebi.ac.uk/ols4/api}
+
+    volumes:
+      - ./data:/app/data
+      - ./logs/mcp:/app/logs
+      - ./cache:/app/.cache
+
+    depends_on:
+      redis:
+        condition: service_healthy
+
+    networks:
+      - sparql-agent-network
+
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:3000/health"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 30s
+
+    labels:
+      - "com.sparql-agent.service=mcp"
+      - "com.sparql-agent.version=${VERSION:-latest}"
+
+    deploy:
+      resources:
+        limits:
+          cpus: '1.0'
+          memory: 1G
+        reservations:
+          cpus: '0.25'
+          memory: 256M
+
+  # =============================================================================
+  # Redis - Caching Layer
+  # =============================================================================
+  redis:
+    image: redis:7-alpine
+    container_name: sparql-agent-redis
+    restart: unless-stopped
+
+    ports:
+      - "${REDIS_PORT:-6379}:6379"
+
+    command: >
+      redis-server
+      --maxmemory ${REDIS_MAX_MEMORY:-256mb}
+      --maxmemory-policy allkeys-lru
+      --save 60 1000
+      --appendonly yes
+
+    volumes:
+      - redis-data:/data
+
+    networks:
+      - sparql-agent-network
+
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+    labels:
+      - "com.sparql-agent.service=cache"
+
+    deploy:
+      resources:
+        limits:
+          cpus: '0.5'
+          memory: 512M
+        reservations:
+          cpus: '0.1'
+          memory: 128M
+
+  # =============================================================================
+  # Nginx - Reverse Proxy and Load Balancer
+  # =============================================================================
+  nginx:
+    image: nginx:alpine
+    container_name: sparql-agent-nginx
+    restart: unless-stopped
+
+    ports:
+      - "${NGINX_HTTP_PORT:-80}:80"
+      - "${NGINX_HTTPS_PORT:-443}:443"
+
+    volumes:
+      - ./docker/nginx/nginx.conf:/etc/nginx/nginx.conf:ro
+      - ./docker/nginx/conf.d:/etc/nginx/conf.d:ro
+      - ./logs/nginx:/var/log/nginx
+      - ./web/frontend/dist:/usr/share/nginx/html:ro
+      # Uncomment for SSL/TLS
+      # - ./certs:/etc/nginx/certs:ro
+
+    depends_on:
+      - sparql-agent-api
+      - sparql-agent-mcp
+
+    networks:
+      - sparql-agent-network
+
+    healthcheck:
+      test: ["CMD", "wget", "--quiet", "--tries=1", "--spider", "http://localhost/health"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+
+    labels:
+      - "com.sparql-agent.service=proxy"
+
+    deploy:
+      resources:
+        limits:
+          cpus: '0.5'
+          memory: 256M
+        reservations:
+          cpus: '0.1'
+          memory: 64M
+
+  # =============================================================================
+  # Prometheus - Metrics Collection (Optional)
+  # =============================================================================
+  prometheus:
+    image: prom/prometheus:latest
+    container_name: sparql-agent-prometheus
+    restart: unless-stopped
+    profiles: ["monitoring"]
+
+    ports:
+      - "${PROMETHEUS_PORT:-9090}:9090"
+
+    command:
+      - '--config.file=/etc/prometheus/prometheus.yml'
+      - '--storage.tsdb.path=/prometheus'
+      - '--storage.tsdb.retention.time=30d'
+
+    volumes:
+      - ./docker/prometheus/prometheus.yml:/etc/prometheus/prometheus.yml:ro
+      - prometheus-data:/prometheus
+
+    networks:
+      - sparql-agent-network
+
+    labels:
+      - "com.sparql-agent.service=monitoring"
+
+  # =============================================================================
+  # Grafana - Metrics Visualization (Optional)
+  # =============================================================================
+  grafana:
+    image: grafana/grafana:latest
+    container_name: sparql-agent-grafana
+    restart: unless-stopped
+    profiles: ["monitoring"]
+
+    ports:
+      - "${GRAFANA_PORT:-3001}:3000"
+
+    environment:
+      GF_SECURITY_ADMIN_USER: ${GRAFANA_ADMIN_USER:-admin}
+      GF_SECURITY_ADMIN_PASSWORD: ${GRAFANA_ADMIN_PASSWORD:-admin}
+      GF_INSTALL_PLUGINS: grafana-piechart-panel
+
+    volumes:
+      - grafana-data:/var/lib/grafana
+      - ./docker/grafana/dashboards:/etc/grafana/provisioning/dashboards:ro
+      - ./docker/grafana/datasources:/etc/grafana/provisioning/datasources:ro
+
+    depends_on:
+      - prometheus
+
+    networks:
+      - sparql-agent-network
+
+    labels:
+      - "com.sparql-agent.service=monitoring"
+
+# =============================================================================
+# Networks
+# =============================================================================
+networks:
+  sparql-agent-network:
+    driver: bridge
+    ipam:
+      config:
+        - subnet: 172.28.0.0/16
+
+# =============================================================================
+# Volumes
+# =============================================================================
+volumes:
+  redis-data:
+    driver: local
+  prometheus-data:
+    driver: local
+  grafana-data:
+    driver: local
+
+# =============================================================================
+# Usage:
+#
+# Start all services:
+#   docker-compose up -d
+#
+# Start with monitoring:
+#   docker-compose --profile monitoring up -d
+#
+# View logs:
+#   docker-compose logs -f sparql-agent-api
+#
+# Scale API servers:
+#   docker-compose up -d --scale sparql-agent-api=3
+#
+# Stop all services:
+#   docker-compose down
+#
+# Clean up everything (including volumes):
+#   docker-compose down -v
+#
+# Rebuild and restart:
+#   docker-compose up -d --build
+# =============================================================================

@@ -1,0 +1,243 @@
+# SPARQL Endpoint Configurations
+# Define default endpoint configurations for commonly used SPARQL services
+
+endpoints:
+  # UniProt SPARQL Endpoint
+  uniprot:
+    name: "UniProt"
+    url: "https://sparql.uniprot.org/sparql/"
+    description: "Universal Protein Resource SPARQL endpoint"
+    timeout: 60
+    rate_limit:
+      enabled: true
+      calls: 10
+      period: 60
+    prefixes:
+      up: "http://purl.uniprot.org/core/"
+      uniprotkb: "http://purl.uniprot.org/uniprot/"
+      taxon: "http://purl.uniprot.org/taxonomy/"
+      rdfs: "http://www.w3.org/2000/01/rdf-schema#"
+      owl: "http://www.w3.org/2002/07/owl#"
+      skos: "http://www.w3.org/2004/02/skos/core#"
+      dcterms: "http://purl.org/dc/terms/"
+    examples:
+      - name: "Get protein information"
+        query: |
+          PREFIX up: <http://purl.uniprot.org/core/>
+          PREFIX uniprotkb: <http://purl.uniprot.org/uniprot/>
+          SELECT ?protein ?name ?organism
+          WHERE {
+            ?protein a up:Protein ;
+                     up:recommendedName ?recName ;
+                     up:organism ?organism .
+            ?recName up:fullName ?name .
+          }
+          LIMIT 10
+    features:
+      - "Protein annotations"
+      - "Taxonomy information"
+      - "Gene ontology annotations"
+      - "Publications and citations"
+
+  # ClinVar SPARQL Endpoint
+  clinvar:
+    name: "ClinVar"
+    url: "https://id.nlm.nih.gov/sparql"
+    description: "ClinVar genetic variants SPARQL endpoint"
+    timeout: 60
+    rate_limit:
+      enabled: true
+      calls: 10
+      period: 60
+    prefixes:
+      clinvar: "https://www.ncbi.nlm.nih.gov/clinvar/"
+      rdfs: "http://www.w3.org/2000/01/rdf-schema#"
+      owl: "http://www.w3.org/2002/07/owl#"
+      dcterms: "http://purl.org/dc/terms/"
+      sio: "http://semanticscience.org/resource/"
+      faldo: "http://biohackathon.org/resource/faldo#"
+    examples:
+      - name: "Get variant information"
+        query: |
+          PREFIX clinvar: <https://www.ncbi.nlm.nih.gov/clinvar/>
+          PREFIX rdfs: <http://www.w3.org/2000/01/rdf-schema#>
+          SELECT ?variant ?label ?significance
+          WHERE {
+            ?variant a clinvar:VariationArchive ;
+                     rdfs:label ?label ;
+                     clinvar:clinicalSignificance ?significance .
+          }
+          LIMIT 10
+    features:
+      - "Genetic variant annotations"
+      - "Clinical significance"
+      - "Gene associations"
+      - "Conditions and phenotypes"
+
+  # RDFPortal SPARQL Endpoint
+  rdfportal:
+    name: "RDFPortal"
+    url: "https://rdfportal.org/sparql"
+    description: "Multi-domain RDF data portal"
+    timeout: 90
+    rate_limit:
+      enabled: true
+      calls: 5
+      period: 60
+    prefixes:
+      rdf: "http://www.w3.org/1999/02/22-rdf-syntax-ns#"
+      rdfs: "http://www.w3.org/2000/01/rdf-schema#"
+      owl: "http://www.w3.org/2002/07/owl#"
+      skos: "http://www.w3.org/2004/02/skos/core#"
+      dcterms: "http://purl.org/dc/terms/"
+      foaf: "http://xmlns.com/foaf/0.1/"
+    examples:
+      - name: "Get available datasets"
+        query: |
+          PREFIX dcterms: <http://purl.org/dc/terms/>
+          PREFIX void: <http://rdfs.org/ns/void#>
+          SELECT ?dataset ?title ?description
+          WHERE {
+            ?dataset a void:Dataset ;
+                     dcterms:title ?title ;
+                     dcterms:description ?description .
+          }
+          LIMIT 10
+    features:
+      - "Multi-domain data integration"
+      - "Federated queries"
+      - "Dataset metadata"
+      - "Cross-domain linking"
+
+  # Wikidata SPARQL Endpoint
+  wikidata:
+    name: "Wikidata"
+    url: "https://query.wikidata.org/sparql"
+    description: "Wikidata knowledge base SPARQL endpoint"
+    timeout: 60
+    rate_limit:
+      enabled: true
+      calls: 10
+      period: 60
+    prefixes:
+      wd: "http://www.wikidata.org/entity/"
+      wdt: "http://www.wikidata.org/prop/direct/"
+      wikibase: "http://wikiba.se/ontology#"
+      p: "http://www.wikidata.org/prop/"
+      ps: "http://www.wikidata.org/prop/statement/"
+      pq: "http://www.wikidata.org/prop/qualifier/"
+      rdfs: "http://www.w3.org/2000/01/rdf-schema#"
+      bd: "http://www.bigdata.com/rdf#"
+    examples:
+      - name: "Get diseases and their genes"
+        query: |
+          PREFIX wd: <http://www.wikidata.org/entity/>
+          PREFIX wdt: <http://www.wikidata.org/prop/direct/>
+          SELECT ?disease ?diseaseLabel ?gene ?geneLabel
+          WHERE {
+            ?disease wdt:P31 wd:Q disease ;
+                     wdt:P2293 ?gene .
+            SERVICE wikibase:label { bd:serviceParam wikibase:language "en". }
+          }
+          LIMIT 10
+    features:
+      - "General knowledge base"
+      - "Multi-domain coverage"
+      - "Multilingual support"
+      - "Extensive biomedical data"
+
+  # EBI RDF Platform
+  ebi:
+    name: "EBI RDF Platform"
+    url: "https://www.ebi.ac.uk/rdf/services/sparql"
+    description: "European Bioinformatics Institute RDF platform"
+    timeout: 90
+    rate_limit:
+      enabled: true
+      calls: 10
+      period: 60
+    prefixes:
+      rdf: "http://www.w3.org/1999/02/22-rdf-syntax-ns#"
+      rdfs: "http://www.w3.org/2000/01/rdf-schema#"
+      owl: "http://www.w3.org/2002/07/owl#"
+      dcterms: "http://purl.org/dc/terms/"
+      sio: "http://semanticscience.org/resource/"
+      obo: "http://purl.obolibrary.org/obo/"
+    examples:
+      - name: "Get biosamples"
+        query: |
+          PREFIX rdf: <http://www.w3.org/1999/02/22-rdf-syntax-ns#>
+          PREFIX rdfs: <http://www.w3.org/2000/01/rdf-schema#>
+          SELECT ?sample ?label ?organism
+          WHERE {
+            ?sample rdf:type ?type ;
+                    rdfs:label ?label ;
+                    ?p ?organism .
+          }
+          LIMIT 10
+    features:
+      - "BioSamples data"
+      - "ChEMBL chemical data"
+      - "Gene Expression Atlas"
+      - "Ontology mappings"
+
+  # DBpedia SPARQL Endpoint
+  dbpedia:
+    name: "DBpedia"
+    url: "https://dbpedia.org/sparql"
+    description: "DBpedia knowledge base SPARQL endpoint"
+    timeout: 60
+    rate_limit:
+      enabled: true
+      calls: 10
+      period: 60
+    prefixes:
+      dbr: "http://dbpedia.org/resource/"
+      dbo: "http://dbpedia.org/ontology/"
+      dbp: "http://dbpedia.org/property/"
+      rdfs: "http://www.w3.org/2000/01/rdf-schema#"
+      owl: "http://www.w3.org/2002/07/owl#"
+      dcterms: "http://purl.org/dc/terms/"
+    examples:
+      - name: "Get diseases"
+        query: |
+          PREFIX dbo: <http://dbpedia.org/ontology/>
+          PREFIX rdfs: <http://www.w3.org/2000/01/rdf-schema#>
+          SELECT ?disease ?label ?abstract
+          WHERE {
+            ?disease a dbo:Disease ;
+                     rdfs:label ?label ;
+                     dbo:abstract ?abstract .
+            FILTER (lang(?label) = 'en' && lang(?abstract) = 'en')
+          }
+          LIMIT 10
+    features:
+      - "Wikipedia-derived data"
+      - "General knowledge"
+      - "Entity linking"
+      - "Multi-domain coverage"
+
+# Default endpoint selection
+default_endpoint: "uniprot"
+
+# Fallback endpoints (tried in order if primary fails)
+fallback_endpoints:
+  - "wikidata"
+  - "dbpedia"
+
+# Endpoint groups for federated queries
+endpoint_groups:
+  biomedical:
+    - "uniprot"
+    - "clinvar"
+    - "ebi"
+  general:
+    - "wikidata"
+    - "dbpedia"
+  all:
+    - "uniprot"
+    - "clinvar"
+    - "rdfportal"
+    - "wikidata"
+    - "ebi"
+    - "dbpedia"

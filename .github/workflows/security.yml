@@ -1,0 +1,512 @@
+name: Security Scanning
+
+on:
+  push:
+    branches:
+      - main
+      - develop
+  pull_request:
+    branches:
+      - main
+      - develop
+  schedule:
+    # Run security scans daily at 3 AM UTC
+    - cron: '0 3 * * *'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+  security-events: write
+  pull-requests: write
+
+env:
+  PYTHON_VERSION: '3.11'
+
+jobs:
+  # CodeQL Analysis
+  codeql:
+    name: CodeQL Analysis
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    strategy:
+      fail-fast: false
+      matrix:
+        language: ['python']
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Initialize CodeQL
+        uses: github/codeql-action/init@v3
+        with:
+          languages: ${{ matrix.language }}
+          queries: +security-and-quality
+          config-file: ./.github/codeql-config.yml
+
+      - name: Autobuild
+        uses: github/codeql-action/autobuild@v3
+
+      - name: Perform CodeQL Analysis
+        uses: github/codeql-action/analyze@v3
+        with:
+          category: "/language:${{ matrix.language }}"
+          upload: true
+
+  # Dependency vulnerability scanning with Dependabot
+  dependency-review:
+    name: Dependency Review
+    runs-on: ubuntu-latest
+    if: github.event_name == 'pull_request'
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Dependency Review
+        uses: actions/dependency-review-action@v4
+        with:
+          fail-on-severity: moderate
+          deny-licenses: GPL-3.0, AGPL-3.0
+          comment-summary-in-pr: always
+
+  # Python security scanning with Bandit
+  bandit:
+    name: Bandit Security Scan
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: ${{ env.PYTHON_VERSION }}
+
+      - name: Install Bandit
+        run: |
+          pip install bandit[toml]
+
+      - name: Run Bandit scan
+        run: |
+          bandit -r src/ -f json -o bandit-report.json || true
+          bandit -r src/ -f screen
+
+      - name: Upload Bandit results
+        uses: actions/upload-artifact@v4
+        with:
+          name: bandit-results
+          path: bandit-report.json
+
+      - name: Convert Bandit results to SARIF
+        run: |
+          pip install bandit-sarif-formatter
+          bandit -r src/ -f sarif -o bandit.sarif || true
+
+      - name: Upload SARIF results
+        uses: github/codeql-action/upload-sarif@v3
+        with:
+          sarif_file: bandit.sarif
+          category: bandit
+
+  # Dependency vulnerability scanning with Safety
+  safety:
+    name: Safety Dependency Check
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: ${{ env.PYTHON_VERSION }}
+
+      - name: Install UV
+        run: curl -LsSf https://astral.sh/uv/install.sh | sh
+
+      - name: Install dependencies
+        run: |
+          uv sync --frozen
+
+      - name: Install Safety
+        run: |
+          pip install safety
+
+      - name: Run Safety check
+        run: |
+          safety check --json --output safety-report.json || true
+          safety check
+
+      - name: Upload Safety results
+        uses: actions/upload-artifact@v4
+        with:
+          name: safety-results
+          path: safety-report.json
+
+  # Pip-audit for vulnerability scanning
+  pip-audit:
+    name: Pip Audit
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: ${{ env.PYTHON_VERSION }}
+
+      - name: Install pip-audit
+        run: |
+          pip install pip-audit
+
+      - name: Run pip-audit
+        run: |
+          pip-audit --desc --format json --output pip-audit-report.json || true
+          pip-audit --desc
+
+      - name: Upload pip-audit results
+        uses: actions/upload-artifact@v4
+        with:
+          name: pip-audit-results
+          path: pip-audit-report.json
+
+  # Secret scanning with Gitleaks
+  gitleaks:
+    name: Gitleaks Secret Scan
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Run Gitleaks
+        uses: gitleaks/gitleaks-action@v2
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          GITLEAKS_LICENSE: ${{ secrets.GITLEAKS_LICENSE }}
+
+  # TruffleHog secret scanning
+  trufflehog:
+    name: TruffleHog Secret Scan
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Run TruffleHog
+        uses: trufflesecurity/trufflehog@main
+        with:
+          path: ./
+          base: ${{ github.event.repository.default_branch }}
+          head: HEAD
+          extra_args: --debug --only-verified
+
+  # Docker image vulnerability scanning with Trivy
+  trivy:
+    name: Trivy Container Scan
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Build Docker image
+        run: |
+          docker build -t sparql-agent:test .
+
+      - name: Run Trivy vulnerability scanner
+        uses: aquasecurity/trivy-action@master
+        with:
+          image-ref: 'sparql-agent:test'
+          format: 'sarif'
+          output: 'trivy-results.sarif'
+          severity: 'CRITICAL,HIGH,MEDIUM'
+          vuln-type: 'os,library'
+          ignore-unfixed: false
+
+      - name: Upload Trivy results to GitHub Security
+        uses: github/codeql-action/upload-sarif@v3
+        with:
+          sarif_file: 'trivy-results.sarif'
+          category: trivy
+
+      - name: Run Trivy filesystem scan
+        uses: aquasecurity/trivy-action@master
+        with:
+          scan-type: 'fs'
+          scan-ref: '.'
+          format: 'sarif'
+          output: 'trivy-fs-results.sarif'
+          severity: 'CRITICAL,HIGH,MEDIUM'
+
+      - name: Upload Trivy filesystem results
+        uses: github/codeql-action/upload-sarif@v3
+        with:
+          sarif_file: 'trivy-fs-results.sarif'
+          category: trivy-filesystem
+
+  # Grype vulnerability scanning
+  grype:
+    name: Grype Vulnerability Scan
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Build Docker image
+        run: |
+          docker build -t sparql-agent:test .
+
+      - name: Run Grype scan
+        uses: anchore/scan-action@v3
+        with:
+          image: sparql-agent:test
+          fail-build: false
+          severity-cutoff: high
+          output-format: sarif
+
+      - name: Upload Grype results
+        uses: github/codeql-action/upload-sarif@v3
+        with:
+          sarif_file: ${{ steps.scan.outputs.sarif }}
+          category: grype
+
+  # SAST scanning with Semgrep
+  semgrep:
+    name: Semgrep SAST Scan
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    container:
+      image: returntocorp/semgrep
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Run Semgrep scan
+        run: |
+          semgrep scan --config auto --sarif -o semgrep.sarif || true
+          semgrep scan --config auto --text
+
+      - name: Upload Semgrep results
+        uses: github/codeql-action/upload-sarif@v3
+        with:
+          sarif_file: semgrep.sarif
+          category: semgrep
+
+  # License compliance checking
+  license-check:
+    name: License Compliance Check
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: ${{ env.PYTHON_VERSION }}
+
+      - name: Install UV
+        run: curl -LsSf https://astral.sh/uv/install.sh | sh
+
+      - name: Install dependencies
+        run: |
+          uv sync --frozen
+
+      - name: Install license checker
+        run: |
+          pip install pip-licenses
+
+      - name: Check licenses
+        run: |
+          pip-licenses --format=json --output-file=licenses.json
+          pip-licenses --format=markdown --output-file=licenses.md
+
+          # Check for problematic licenses
+          if pip-licenses | grep -E "(GPL-3.0|AGPL|SSPL)"; then
+            echo "::error::Found incompatible licenses"
+            exit 1
+          fi
+
+      - name: Upload license report
+        uses: actions/upload-artifact@v4
+        with:
+          name: license-report
+          path: |
+            licenses.json
+            licenses.md
+
+  # SBOM generation
+  sbom:
+    name: Generate SBOM
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: ${{ env.PYTHON_VERSION }}
+
+      - name: Install UV
+        run: curl -LsSf https://astral.sh/uv/install.sh | sh
+
+      - name: Install dependencies
+        run: |
+          uv sync --frozen
+
+      - name: Generate SBOM with CycloneDX
+        run: |
+          pip install cyclonedx-bom
+          cyclonedx-py --format json --output sbom.json
+
+      - name: Generate SBOM with Syft
+        uses: anchore/sbom-action@v0
+        with:
+          path: .
+          format: spdx-json
+          output-file: sbom-spdx.json
+
+      - name: Upload SBOM artifacts
+        uses: actions/upload-artifact@v4
+        with:
+          name: sbom
+          path: |
+            sbom.json
+            sbom-spdx.json
+
+      - name: Attach SBOM to release
+        if: startsWith(github.ref, 'refs/tags/v')
+        uses: softprops/action-gh-release@v1
+        with:
+          files: |
+            sbom.json
+            sbom-spdx.json
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+
+  # Container best practices scanning
+  hadolint:
+    name: Hadolint Dockerfile Scan
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Run Hadolint
+        uses: hadolint/hadolint-action@v3.1.0
+        with:
+          dockerfile: Dockerfile
+          format: sarif
+          output-file: hadolint.sarif
+          no-fail: true
+
+      - name: Upload Hadolint results
+        uses: github/codeql-action/upload-sarif@v3
+        with:
+          sarif_file: hadolint.sarif
+          category: hadolint
+
+  # Infrastructure as Code scanning
+  checkov:
+    name: Checkov IaC Scan
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Run Checkov
+        uses: bridgecrewio/checkov-action@master
+        with:
+          directory: .
+          framework: dockerfile,terraform,kubernetes
+          output_format: sarif
+          output_file_path: checkov.sarif
+          soft_fail: true
+
+      - name: Upload Checkov results
+        uses: github/codeql-action/upload-sarif@v3
+        with:
+          sarif_file: checkov.sarif
+          category: checkov
+
+  # Security summary and reporting
+  security-summary:
+    name: Security Summary
+    runs-on: ubuntu-latest
+    needs:
+      - codeql
+      - bandit
+      - safety
+      - pip-audit
+      - gitleaks
+      - trufflehog
+      - trivy
+      - grype
+      - semgrep
+      - license-check
+      - sbom
+      - hadolint
+      - checkov
+    if: always()
+    steps:
+      - name: Download all artifacts
+        uses: actions/download-artifact@v4
+
+      - name: Generate security summary
+        run: |
+          cat << EOF > security-summary.md
+          # Security Scan Summary
+
+          **Scan Date:** $(date -u +"%Y-%m-%d %H:%M:%S UTC")
+          **Commit:** ${{ github.sha }}
+          **Branch:** ${{ github.ref_name }}
+
+          ## Scan Results
+
+          | Scanner | Status |
+          |---------|--------|
+          | CodeQL | ${{ needs.codeql.result }} |
+          | Bandit | ${{ needs.bandit.result }} |
+          | Safety | ${{ needs.safety.result }} |
+          | Pip-audit | ${{ needs.pip-audit.result }} |
+          | Gitleaks | ${{ needs.gitleaks.result }} |
+          | TruffleHog | ${{ needs.trufflehog.result }} |
+          | Trivy | ${{ needs.trivy.result }} |
+          | Grype | ${{ needs.grype.result }} |
+          | Semgrep | ${{ needs.semgrep.result }} |
+          | License Check | ${{ needs.license-check.result }} |
+          | SBOM | ${{ needs.sbom.result }} |
+          | Hadolint | ${{ needs.hadolint.result }} |
+          | Checkov | ${{ needs.checkov.result }} |
+
+          ## Actions Required
+
+          Review the security findings in the [Security tab](https://github.com/${{ github.repository }}/security).
+          EOF
+
+          cat security-summary.md
+
+      - name: Comment on PR
+        if: github.event_name == 'pull_request'
+        uses: actions/github-script@v7
+        with:
+          script: |
+            const fs = require('fs');
+            const summary = fs.readFileSync('security-summary.md', 'utf8');
+            github.rest.issues.createComment({
+              issue_number: context.issue.number,
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              body: summary
+            });
+
+      - name: Check for critical failures
+        if: |
+          needs.gitleaks.result == 'failure' ||
+          needs.trufflehog.result == 'failure'
+        run: |
+          echo "::error::Critical security issues detected - secrets found in code"
+          exit 1

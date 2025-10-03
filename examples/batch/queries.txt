@@ -1,0 +1,18 @@
+# Example batch queries (text format)
+# One query per line, comments start with #
+
+# Simple pattern queries
+SELECT ?s ?p ?o WHERE { ?s ?p ?o } LIMIT 10
+
+# More complex query
+SELECT ?protein ?name WHERE { ?protein a <http://purl.uniprot.org/core/Protein> . ?protein <http://purl.uniprot.org/core/name> ?name } LIMIT 20
+
+# Natural language queries (will be converted to SPARQL)
+Find all proteins from human
+
+Show diseases related to diabetes
+
+List genes with GO term DNA binding
+
+# Another SPARQL query
+SELECT DISTINCT ?class WHERE { ?s a ?class } LIMIT 50

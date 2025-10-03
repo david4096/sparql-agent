@@ -1,0 +1,438 @@
+# LLM Prompt Templates for SPARQL Agent
+# Define prompt templates for various agent tasks and interactions
+
+prompts:
+  # Natural Language to SPARQL Query Generation
+  nl_to_sparql:
+    name: "Natural Language to SPARQL"
+    description: "Convert natural language questions to SPARQL queries"
+    template: |
+      You are an expert SPARQL query generator. Convert the following natural language question into a valid SPARQL query.
+
+      Context:
+      - Available endpoints: {endpoints}
+      - Available ontologies: {ontologies}
+      - Preferred prefixes: {prefixes}
+
+      Question: {question}
+
+      Guidelines:
+      1. Use appropriate prefixes from the available ontologies
+      2. Generate efficient queries with LIMIT clauses when appropriate
+      3. Use FILTER clauses for specific constraints
+      4. Include descriptive variable names
+      5. Add comments to explain complex patterns
+      6. Consider using OPTIONAL for potentially missing data
+
+      Generate only the SPARQL query without additional explanation.
+
+      SPARQL Query:
+    parameters:
+      - "question"
+      - "endpoints"
+      - "ontologies"
+      - "prefixes"
+    examples:
+      - question: "Find all proteins associated with diabetes"
+        output: |
+          PREFIX up: <http://purl.uniprot.org/core/>
+          PREFIX rdfs: <http://www.w3.org/2000/01/rdf-schema#>
+          SELECT ?protein ?name
+          WHERE {
+            ?protein a up:Protein ;
+                     up:annotation ?annotation ;
+                     up:recommendedName ?recName .
+            ?recName up:fullName ?name .
+            ?annotation a up:Disease_Annotation ;
+                       rdfs:comment ?comment .
+            FILTER(CONTAINS(LCASE(?comment), "diabetes"))
+          }
+          LIMIT 100
+
+  # Query Refinement
+  query_refinement:
+    name: "Query Refinement"
+    description: "Refine SPARQL queries based on results or errors"
+    template: |
+      You are refining a SPARQL query that produced unexpected results or errors.
+
+      Original Question: {question}
+      Original Query: {original_query}
+
+      {context}
+
+      Please refine the query to address the issue. Consider:
+      1. Syntax errors and corrections
+      2. Missing or incorrect prefixes
+      3. Logical errors in the pattern
+      4. Performance optimizations
+      5. Alternative query patterns
+
+      Refined SPARQL Query:
+    parameters:
+      - "question"
+      - "original_query"
+      - "context"
+
+  # Result Interpretation
+  result_interpretation:
+    name: "Result Interpretation"
+    description: "Interpret SPARQL query results in natural language"
+    template: |
+      You are interpreting SPARQL query results for a user.
+
+      Original Question: {question}
+      Query: {query}
+
+      Results:
+      {results}
+
+      Provide a clear, concise natural language summary of the results. Include:
+      1. Direct answer to the question
+      2. Key findings and statistics
+      3. Notable patterns or insights
+      4. Limitations or caveats if any
+
+      Summary:
+    parameters:
+      - "question"
+      - "query"
+      - "results"
+
+  # Ontology Term Suggestion
+  ontology_suggestion:
+    name: "Ontology Term Suggestion"
+    description: "Suggest relevant ontology terms for a concept"
+    template: |
+      You are suggesting relevant ontology terms for a given concept or description.
+
+      Concept: {concept}
+      Context: {context}
+
+      Available Ontologies:
+      {ontologies}
+
+      Suggest the most relevant ontology terms that match this concept. For each suggestion, provide:
+      1. Ontology ID (e.g., EFO:0000270)
+      2. Term label
+      3. Relevance score (0-1)
+      4. Brief explanation
+
+      Suggestions:
+    parameters:
+      - "concept"
+      - "context"
+      - "ontologies"
+
+  # Query Optimization
+  query_optimization:
+    name: "Query Optimization"
+    description: "Optimize SPARQL queries for performance"
+    template: |
+      You are optimizing a SPARQL query for better performance.
+
+      Original Query: {query}
+
+      Endpoint Information:
+      - Endpoint: {endpoint}
+      - Dataset size: {dataset_size}
+      - Available indexes: {indexes}
+
+      Optimization goals:
+      1. Reduce query execution time
+      2. Minimize data transfer
+      3. Use appropriate indexes
+      4. Apply selective filters early
+      5. Consider query complexity
+
+      Provide the optimized query with comments explaining the changes.
+
+      Optimized SPARQL Query:
+    parameters:
+      - "query"
+      - "endpoint"
+      - "dataset_size"
+      - "indexes"
+
+  # Error Analysis
+  error_analysis:
+    name: "Error Analysis"
+    description: "Analyze SPARQL query errors and suggest fixes"
+    template: |
+      You are analyzing a SPARQL query error and suggesting fixes.
+
+      Query: {query}
+
+      Error Message:
+      {error}
+
+      Endpoint: {endpoint}
+
+      Analyze the error and provide:
+      1. Error type and cause
+      2. Specific location of the error
+      3. Suggested fix
+      4. Corrected query
+      5. Prevention tips
+
+      Analysis:
+    parameters:
+      - "query"
+      - "error"
+      - "endpoint"
+
+  # Federated Query Planning
+  federated_query:
+    name: "Federated Query Planning"
+    description: "Plan federated queries across multiple endpoints"
+    template: |
+      You are planning a federated SPARQL query across multiple endpoints.
+
+      Question: {question}
+
+      Available Endpoints:
+      {endpoints}
+
+      Plan and generate a federated query that:
+      1. Identifies which data should come from which endpoint
+      2. Minimizes cross-endpoint data transfer
+      3. Uses SERVICE clauses appropriately
+      4. Handles potential endpoint failures gracefully
+      5. Optimizes for overall performance
+
+      Federated SPARQL Query:
+    parameters:
+      - "question"
+      - "endpoints"
+
+  # Entity Linking
+  entity_linking:
+    name: "Entity Linking"
+    description: "Link entities in text to ontology terms or RDF resources"
+    template: |
+      You are identifying and linking entities in text to RDF resources and ontology terms.
+
+      Text: {text}
+
+      Available Resources:
+      - Ontologies: {ontologies}
+      - Endpoints: {endpoints}
+
+      For each entity found:
+      1. Entity text
+      2. Entity type (gene, protein, disease, etc.)
+      3. Linked URI (from ontology or knowledge base)
+      4. Confidence score (0-1)
+      5. Context
+
+      Entity Links:
+    parameters:
+      - "text"
+      - "ontologies"
+      - "endpoints"
+
+  # Query Explanation
+  query_explanation:
+    name: "Query Explanation"
+    description: "Explain what a SPARQL query does in natural language"
+    template: |
+      You are explaining a SPARQL query in simple, natural language.
+
+      SPARQL Query:
+      {query}
+
+      Explain:
+      1. What data the query retrieves
+      2. The query structure and patterns
+      3. Any filters or constraints applied
+      4. Expected result format
+      5. Potential use cases
+
+      Use clear, non-technical language where possible, but include technical details when necessary for accuracy.
+
+      Explanation:
+    parameters:
+      - "query"
+
+  # Schema Discovery
+  schema_discovery:
+    name: "Schema Discovery"
+    description: "Generate queries to discover schema and data patterns"
+    template: |
+      You are helping discover the schema and structure of an RDF dataset.
+
+      Endpoint: {endpoint}
+      Focus: {focus}
+
+      Generate SPARQL queries to discover:
+      1. Available classes (rdf:type)
+      2. Properties used with specific classes
+      3. Property value types and ranges
+      4. Common patterns and relationships
+      5. Example instances
+
+      Discovery Queries:
+    parameters:
+      - "endpoint"
+      - "focus"
+
+  # Data Quality Assessment
+  data_quality:
+    name: "Data Quality Assessment"
+    description: "Generate queries to assess RDF data quality"
+    template: |
+      You are assessing the quality of RDF data at an endpoint.
+
+      Endpoint: {endpoint}
+      Dataset: {dataset}
+
+      Generate SPARQL queries to check:
+      1. Missing required properties
+      2. Inconsistent data values
+      3. Broken links (unreachable URIs)
+      4. Duplicate entities
+      5. Schema violations
+
+      Quality Assessment Queries:
+    parameters:
+      - "endpoint"
+      - "dataset"
+
+  # Answer Synthesis
+  answer_synthesis:
+    name: "Answer Synthesis"
+    description: "Synthesize comprehensive answers from multiple query results"
+    template: |
+      You are synthesizing a comprehensive answer from multiple SPARQL query results.
+
+      Original Question: {question}
+
+      Results from multiple queries:
+      {query_results}
+
+      Synthesize a comprehensive answer that:
+      1. Directly addresses the question
+      2. Integrates information from all results
+      3. Highlights agreements and contradictions
+      4. Provides confidence levels for statements
+      5. Cites sources (which endpoints/queries)
+      6. Notes any limitations or gaps
+
+      Comprehensive Answer:
+    parameters:
+      - "question"
+      - "query_results"
+
+  # Interactive Clarification
+  clarification:
+    name: "Interactive Clarification"
+    description: "Ask clarifying questions when user intent is ambiguous"
+    template: |
+      The user's question is ambiguous or lacks necessary details.
+
+      Question: {question}
+      Available Context: {context}
+
+      Ambiguities identified:
+      {ambiguities}
+
+      Generate 2-4 clarifying questions that will help:
+      1. Narrow down the specific information needed
+      2. Identify the appropriate data sources
+      3. Determine the expected result format
+      4. Resolve any ambiguous terms or concepts
+
+      Provide the questions in a friendly, conversational tone.
+
+      Clarifying Questions:
+    parameters:
+      - "question"
+      - "context"
+      - "ambiguities"
+
+  # Batch Query Generation
+  batch_query:
+    name: "Batch Query Generation"
+    description: "Generate multiple related queries for comprehensive data retrieval"
+    template: |
+      You are generating a batch of related SPARQL queries to comprehensively answer a complex question.
+
+      Question: {question}
+      Endpoints: {endpoints}
+
+      Generate 3-5 related queries that:
+      1. Can be executed in parallel
+      2. Cover different aspects of the question
+      3. Use appropriate endpoints for each query
+      4. Build upon each other's results
+      5. Together provide a complete answer
+
+      For each query, specify:
+      - Query purpose
+      - Target endpoint
+      - SPARQL query
+      - How it relates to other queries
+
+      Batch Queries:
+    parameters:
+      - "question"
+      - "endpoints"
+
+# System prompts for different agent modes
+system_prompts:
+  conversational:
+    template: |
+      You are a helpful SPARQL assistant. You help users query RDF data sources and ontologies using natural language.
+      You are knowledgeable about SPARQL, RDF, OWL, and semantic web technologies. You provide clear, accurate,
+      and helpful responses. When generating queries, you prioritize correctness and efficiency.
+
+  expert:
+    template: |
+      You are an expert SPARQL developer and semantic web engineer. You have deep knowledge of SPARQL 1.1,
+      RDF, RDFS, OWL, and biomedical ontologies. You generate optimized, production-ready queries and provide
+      detailed technical explanations. You consider performance, scalability, and best practices.
+
+  educational:
+    template: |
+      You are a patient teacher helping users learn about SPARQL and RDF data. You explain concepts clearly,
+      provide examples, and encourage learning. You break down complex queries into understandable parts and
+      explain the reasoning behind query structure and patterns.
+
+# Few-shot examples for common tasks
+few_shot_examples:
+  protein_queries:
+    - question: "Find proteins in humans"
+      query: |
+        PREFIX up: <http://purl.uniprot.org/core/>
+        PREFIX taxon: <http://purl.uniprot.org/taxonomy/>
+        SELECT ?protein ?name
+        WHERE {
+          ?protein a up:Protein ;
+                   up:organism taxon:9606 ;
+                   up:recommendedName ?recName .
+          ?recName up:fullName ?name .
+        }
+        LIMIT 100
+
+  disease_queries:
+    - question: "Find diseases and their symptoms"
+      query: |
+        PREFIX mondo: <http://purl.obolibrary.org/obo/MONDO_>
+        PREFIX rdfs: <http://www.w3.org/2000/01/rdf-schema#>
+        PREFIX obo: <http://purl.obolibrary.org/obo/>
+        SELECT ?disease ?diseaseLabel ?symptom ?symptomLabel
+        WHERE {
+          ?disease a owl:Class ;
+                   rdfs:label ?diseaseLabel ;
+                   obo:RO_0002200 ?symptom .
+          ?symptom rdfs:label ?symptomLabel .
+        }
+        LIMIT 100
+
+# Configuration for prompt behavior
+config:
+  max_prompt_length: 8000
+  temperature: 0.1
+  include_examples: true
+  max_examples: 3
+  verbose: false

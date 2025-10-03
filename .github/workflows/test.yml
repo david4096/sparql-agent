@@ -1,0 +1,396 @@
+name: Test Suite
+
+on:
+  push:
+    branches:
+      - main
+      - develop
+    paths:
+      - 'src/**'
+      - 'tests/**'
+      - 'pyproject.toml'
+      - 'uv.lock'
+      - '.github/workflows/test.yml'
+  pull_request:
+    branches:
+      - main
+      - develop
+    paths:
+      - 'src/**'
+      - 'tests/**'
+      - 'pyproject.toml'
+      - 'uv.lock'
+      - '.github/workflows/test.yml'
+  workflow_dispatch:
+  schedule:
+    # Run tests daily at 2 AM UTC
+    - cron: '0 2 * * *'
+
+env:
+  PYTHON_VERSION_DEFAULT: '3.11'
+  UV_CACHE_DIR: ~/.cache/uv
+  COVERAGE_THRESHOLD: 90
+
+jobs:
+  # Quick validation before running full test suite
+  quick-check:
+    name: Quick Validation
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: ${{ env.PYTHON_VERSION_DEFAULT }}
+
+      - name: Install UV
+        run: curl -LsSf https://astral.sh/uv/install.sh | sh
+
+      - name: Cache UV packages
+        uses: actions/cache@v4
+        with:
+          path: ${{ env.UV_CACHE_DIR }}
+          key: uv-${{ runner.os }}-${{ hashFiles('uv.lock') }}
+          restore-keys: |
+            uv-${{ runner.os }}-
+
+      - name: Install dependencies
+        run: |
+          uv sync --frozen
+
+      - name: Check code formatting (black)
+        run: |
+          uv run black --check src tests
+
+      - name: Check import sorting (isort)
+        run: |
+          uv run isort --check-only src tests
+
+      - name: Lint with ruff
+        run: |
+          uv run ruff check src tests
+
+      - name: Type check with mypy
+        run: |
+          uv run mypy src --ignore-missing-imports
+
+  # Matrix testing across Python versions
+  test-matrix:
+    name: Test Python ${{ matrix.python-version }} on ${{ matrix.os }}
+    runs-on: ${{ matrix.os }}
+    needs: quick-check
+    timeout-minutes: 30
+    strategy:
+      fail-fast: false
+      matrix:
+        os: [ubuntu-latest, macos-latest, windows-latest]
+        python-version: ['3.9', '3.10', '3.11', '3.12']
+        exclude:
+          # Reduce matrix size - test only 3.11 on macOS and Windows
+          - os: macos-latest
+            python-version: '3.9'
+          - os: macos-latest
+            python-version: '3.10'
+          - os: macos-latest
+            python-version: '3.12'
+          - os: windows-latest
+            python-version: '3.9'
+          - os: windows-latest
+            python-version: '3.10'
+          - os: windows-latest
+            python-version: '3.12'
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Set up Python ${{ matrix.python-version }}
+        uses: actions/setup-python@v5
+        with:
+          python-version: ${{ matrix.python-version }}
+
+      - name: Install UV (Unix)
+        if: runner.os != 'Windows'
+        run: curl -LsSf https://astral.sh/uv/install.sh | sh
+
+      - name: Install UV (Windows)
+        if: runner.os == 'Windows'
+        run: irm https://astral.sh/uv/install.ps1 | iex
+        shell: powershell
+
+      - name: Cache UV packages
+        uses: actions/cache@v4
+        with:
+          path: ${{ env.UV_CACHE_DIR }}
+          key: uv-${{ runner.os }}-py${{ matrix.python-version }}-${{ hashFiles('uv.lock') }}
+          restore-keys: |
+            uv-${{ runner.os }}-py${{ matrix.python-version }}-
+
+      - name: Install dependencies
+        run: |
+          uv sync --frozen
+
+      - name: Run unit tests
+        run: |
+          uv run pytest tests/ -v \
+            --cov=sparql_agent \
+            --cov-report=xml \
+            --cov-report=term-missing \
+            --junitxml=junit/test-results-${{ matrix.python-version }}.xml \
+            -m "not integration and not slow"
+
+      - name: Upload coverage to Codecov
+        uses: codecov/codecov-action@v4
+        with:
+          file: ./coverage.xml
+          flags: unittests,${{ matrix.os }},py${{ matrix.python-version }}
+          name: codecov-${{ matrix.os }}-py${{ matrix.python-version }}
+          fail_ci_if_error: false
+        env:
+          CODECOV_TOKEN: ${{ secrets.CODECOV_TOKEN }}
+
+      - name: Upload test results
+        uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: test-results-${{ matrix.os }}-py${{ matrix.python-version }}
+          path: junit/test-results-*.xml
+
+  # Integration tests with real endpoints
+  integration-tests:
+    name: Integration Tests
+    runs-on: ubuntu-latest
+    needs: quick-check
+    timeout-minutes: 20
+    services:
+      # Mock SPARQL endpoint for testing
+      blazegraph:
+        image: lyrasis/blazegraph:2.1.6
+        ports:
+          - 9999:9999
+        options: >-
+          --health-cmd "curl -f http://localhost:9999/blazegraph/ || exit 1"
+          --health-interval 10s
+          --health-timeout 5s
+          --health-retries 5
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: ${{ env.PYTHON_VERSION_DEFAULT }}
+
+      - name: Install UV
+        run: curl -LsSf https://astral.sh/uv/install.sh | sh
+
+      - name: Cache UV packages
+        uses: actions/cache@v4
+        with:
+          path: ${{ env.UV_CACHE_DIR }}
+          key: uv-${{ runner.os }}-integration-${{ hashFiles('uv.lock') }}
+          restore-keys: |
+            uv-${{ runner.os }}-integration-
+
+      - name: Install dependencies
+        run: |
+          uv sync --frozen
+
+      - name: Wait for Blazegraph
+        run: |
+          timeout 60 bash -c 'until curl -f http://localhost:9999/blazegraph/; do sleep 2; done'
+
+      - name: Run integration tests
+        env:
+          SPARQL_ENDPOINT: http://localhost:9999/blazegraph/sparql
+        run: |
+          uv run pytest tests/ -v \
+            --cov=sparql_agent \
+            --cov-report=xml \
+            --cov-report=term-missing \
+            -m "integration"
+
+      - name: Upload integration coverage
+        uses: codecov/codecov-action@v4
+        with:
+          file: ./coverage.xml
+          flags: integration
+          name: codecov-integration
+          fail_ci_if_error: false
+        env:
+          CODECOV_TOKEN: ${{ secrets.CODECOV_TOKEN }}
+
+  # Performance and benchmark tests
+  performance-tests:
+    name: Performance Tests
+    runs-on: ubuntu-latest
+    needs: quick-check
+    timeout-minutes: 30
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: ${{ env.PYTHON_VERSION_DEFAULT }}
+
+      - name: Install UV
+        run: curl -LsSf https://astral.sh/uv/install.sh | sh
+
+      - name: Cache UV packages
+        uses: actions/cache@v4
+        with:
+          path: ${{ env.UV_CACHE_DIR }}
+          key: uv-${{ runner.os }}-perf-${{ hashFiles('uv.lock') }}
+          restore-keys: |
+            uv-${{ runner.os }}-perf-
+
+      - name: Install dependencies
+        run: |
+          uv sync --frozen
+
+      - name: Run performance tests
+        run: |
+          uv run pytest tests/ -v \
+            --benchmark-only \
+            --benchmark-json=benchmark.json \
+            -m "performance"
+
+      - name: Store benchmark result
+        uses: benchmark-action/github-action-benchmark@v1
+        with:
+          tool: 'pytest'
+          output-file-path: benchmark.json
+          github-token: ${{ secrets.GITHUB_TOKEN }}
+          auto-push: true
+          alert-threshold: '150%'
+          comment-on-alert: true
+          fail-on-alert: false
+
+      - name: Upload benchmark results
+        uses: actions/upload-artifact@v4
+        with:
+          name: benchmark-results
+          path: benchmark.json
+
+  # Coverage analysis and reporting
+  coverage-report:
+    name: Coverage Report
+    runs-on: ubuntu-latest
+    needs: [test-matrix, integration-tests]
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: ${{ env.PYTHON_VERSION_DEFAULT }}
+
+      - name: Install UV
+        run: curl -LsSf https://astral.sh/uv/install.sh | sh
+
+      - name: Cache UV packages
+        uses: actions/cache@v4
+        with:
+          path: ${{ env.UV_CACHE_DIR }}
+          key: uv-${{ runner.os }}-coverage-${{ hashFiles('uv.lock') }}
+
+      - name: Install dependencies
+        run: |
+          uv sync --frozen
+
+      - name: Run full test suite with coverage
+        run: |
+          uv run pytest tests/ -v \
+            --cov=sparql_agent \
+            --cov-report=html \
+            --cov-report=term-missing \
+            --cov-report=json \
+            --cov-fail-under=${{ env.COVERAGE_THRESHOLD }}
+
+      - name: Generate coverage badge
+        run: |
+          COVERAGE=$(python -c "import json; print(json.load(open('coverage.json'))['totals']['percent_covered_display'])")
+          echo "COVERAGE=$COVERAGE" >> $GITHUB_ENV
+
+      - name: Upload coverage HTML report
+        uses: actions/upload-artifact@v4
+        with:
+          name: coverage-report
+          path: htmlcov/
+
+      - name: Comment coverage on PR
+        if: github.event_name == 'pull_request'
+        uses: py-cov-action/python-coverage-comment-action@v3
+        with:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          MINIMUM_GREEN: 90
+          MINIMUM_ORANGE: 70
+
+  # Parallel test execution for speed
+  parallel-tests:
+    name: Parallel Test Execution
+    runs-on: ubuntu-latest
+    needs: quick-check
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: ${{ env.PYTHON_VERSION_DEFAULT }}
+
+      - name: Install UV
+        run: curl -LsSf https://astral.sh/uv/install.sh | sh
+
+      - name: Cache UV packages
+        uses: actions/cache@v4
+        with:
+          path: ${{ env.UV_CACHE_DIR }}
+          key: uv-${{ runner.os }}-parallel-${{ hashFiles('uv.lock') }}
+
+      - name: Install dependencies
+        run: |
+          uv sync --frozen
+
+      - name: Run tests in parallel
+        run: |
+          uv run pytest tests/ -v \
+            -n auto \
+            --dist loadfile \
+            --cov=sparql_agent \
+            --cov-report=xml
+
+      - name: Upload parallel test coverage
+        uses: codecov/codecov-action@v4
+        with:
+          file: ./coverage.xml
+          flags: parallel
+          name: codecov-parallel
+        env:
+          CODECOV_TOKEN: ${{ secrets.CODECOV_TOKEN }}
+
+  # Test result summary
+  test-summary:
+    name: Test Summary
+    runs-on: ubuntu-latest
+    needs: [test-matrix, integration-tests, performance-tests, coverage-report]
+    if: always()
+    steps:
+      - name: Check test results
+        run: |
+          echo "Test Matrix: ${{ needs.test-matrix.result }}"
+          echo "Integration Tests: ${{ needs.integration-tests.result }}"
+          echo "Performance Tests: ${{ needs.performance-tests.result }}"
+          echo "Coverage Report: ${{ needs.coverage-report.result }}"
+
+      - name: Fail if any tests failed
+        if: |
+          needs.test-matrix.result == 'failure' ||
+          needs.integration-tests.result == 'failure' ||
+          needs.coverage-report.result == 'failure'
+        run: exit 1

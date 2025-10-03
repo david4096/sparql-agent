@@ -1,0 +1,227 @@
+@prefix : <http://example.org/ontology#> .
+@prefix owl: <http://www.w3.org/2002/07/owl#> .
+@prefix rdf: <http://www.w3.org/1999/02/22-rdf-syntax-ns#> .
+@prefix xml: <http://www.w3.org/XML/1998/namespace> .
+@prefix xsd: <http://www.w3.org/2001/XMLSchema#> .
+@prefix rdfs: <http://www.w3.org/2000/01/rdf-schema#> .
+@prefix foaf: <http://xmlns.com/foaf/0.1/> .
+
+<http://example.org/ontology> a owl:Ontology ;
+    rdfs:label "Sample Ontology for Testing" ;
+    rdfs:comment "A comprehensive example ontology for SPARQL agent tests" ;
+    owl:versionInfo "1.0" .
+
+#################################################################
+#    Classes
+#################################################################
+
+:Agent a owl:Class ;
+    rdfs:label "Agent" ;
+    rdfs:comment "A general agent (person, organization, or software)" .
+
+:Person a owl:Class ;
+    rdfs:label "Person" ;
+    rdfs:comment "A human being" ;
+    rdfs:subClassOf :Agent .
+
+:Organization a owl:Class ;
+    rdfs:label "Organization" ;
+    rdfs:comment "An organized group of people" ;
+    rdfs:subClassOf :Agent .
+
+:Company a owl:Class ;
+    rdfs:label "Company" ;
+    rdfs:comment "A commercial organization" ;
+    rdfs:subClassOf :Organization .
+
+:University a owl:Class ;
+    rdfs:label "University" ;
+    rdfs:comment "An educational institution" ;
+    rdfs:subClassOf :Organization .
+
+:Employee a owl:Class ;
+    rdfs:label "Employee" ;
+    rdfs:comment "A person who works for an organization" ;
+    rdfs:subClassOf :Person .
+
+:Project a owl:Class ;
+    rdfs:label "Project" ;
+    rdfs:comment "A planned activity or undertaking" .
+
+:Publication a owl:Class ;
+    rdfs:label "Publication" ;
+    rdfs:comment "A published work" .
+
+:Location a owl:Class ;
+    rdfs:label "Location" ;
+    rdfs:comment "A physical or geographic place" .
+
+#################################################################
+#    Object Properties
+#################################################################
+
+:worksFor a owl:ObjectProperty ;
+    rdfs:label "works for" ;
+    rdfs:comment "Indicates employment relationship" ;
+    rdfs:domain :Person ;
+    rdfs:range :Organization .
+
+:manages a owl:ObjectProperty ;
+    rdfs:label "manages" ;
+    rdfs:comment "Indicates management relationship" ;
+    rdfs:domain :Person ;
+    rdfs:range :Organization .
+
+:memberOf a owl:ObjectProperty ;
+    rdfs:label "member of" ;
+    rdfs:comment "Indicates membership in an organization" ;
+    rdfs:domain :Person ;
+    rdfs:range :Organization .
+
+:collaboratesWith a owl:ObjectProperty ;
+    rdfs:label "collaborates with" ;
+    rdfs:comment "Indicates collaboration between agents" ;
+    rdfs:domain :Agent ;
+    rdfs:range :Agent ;
+    a owl:SymmetricProperty .
+
+:participatesIn a owl:ObjectProperty ;
+    rdfs:label "participates in" ;
+    rdfs:comment "Indicates participation in a project" ;
+    rdfs:domain :Person ;
+    rdfs:range :Project .
+
+:hasLocation a owl:ObjectProperty ;
+    rdfs:label "has location" ;
+    rdfs:comment "Indicates physical location" ;
+    rdfs:range :Location .
+
+:knows a owl:ObjectProperty ;
+    rdfs:label "knows" ;
+    rdfs:comment "Indicates acquaintance between people" ;
+    rdfs:domain :Person ;
+    rdfs:range :Person ;
+    a owl:SymmetricProperty .
+
+:author a owl:ObjectProperty ;
+    rdfs:label "author" ;
+    rdfs:comment "Indicates authorship of a publication" ;
+    rdfs:domain :Publication ;
+    rdfs:range :Person .
+
+#################################################################
+#    Data Properties
+#################################################################
+
+:name a owl:DatatypeProperty ;
+    rdfs:label "name" ;
+    rdfs:comment "The name of an entity" ;
+    rdfs:domain :Agent ;
+    rdfs:range xsd:string .
+
+:email a owl:DatatypeProperty ;
+    rdfs:label "email" ;
+    rdfs:comment "Email address" ;
+    rdfs:domain :Person ;
+    rdfs:range xsd:string .
+
+:age a owl:DatatypeProperty ;
+    rdfs:label "age" ;
+    rdfs:comment "Age in years" ;
+    rdfs:domain :Person ;
+    rdfs:range xsd:integer .
+
+:salary a owl:DatatypeProperty ;
+    rdfs:label "salary" ;
+    rdfs:comment "Annual salary" ;
+    rdfs:domain :Employee ;
+    rdfs:range xsd:decimal .
+
+:founded a owl:DatatypeProperty ;
+    rdfs:label "founded" ;
+    rdfs:comment "Year of founding" ;
+    rdfs:domain :Organization ;
+    rdfs:range xsd:gYear .
+
+:employeeCount a owl:DatatypeProperty ;
+    rdfs:label "employee count" ;
+    rdfs:comment "Number of employees" ;
+    rdfs:domain :Organization ;
+    rdfs:range xsd:integer .
+
+:title a owl:DatatypeProperty ;
+    rdfs:label "title" ;
+    rdfs:comment "Title or designation" ;
+    rdfs:range xsd:string .
+
+:startDate a owl:DatatypeProperty ;
+    rdfs:label "start date" ;
+    rdfs:comment "Start date of a project or employment" ;
+    rdfs:range xsd:date .
+
+:endDate a owl:DatatypeProperty ;
+    rdfs:label "end date" ;
+    rdfs:comment "End date of a project or employment" ;
+    rdfs:range xsd:date .
+
+:budget a owl:DatatypeProperty ;
+    rdfs:label "budget" ;
+    rdfs:comment "Budget amount" ;
+    rdfs:domain :Project ;
+    rdfs:range xsd:decimal .
+
+:description a owl:DatatypeProperty ;
+    rdfs:label "description" ;
+    rdfs:comment "Textual description" ;
+    rdfs:range xsd:string .
+
+:phoneNumber a owl:DatatypeProperty ;
+    rdfs:label "phone number" ;
+    rdfs:comment "Contact phone number" ;
+    rdfs:range xsd:string .
+
+:website a owl:DatatypeProperty ;
+    rdfs:label "website" ;
+    rdfs:comment "Website URL" ;
+    rdfs:range xsd:anyURI .
+
+#################################################################
+#    Sample Instances
+#################################################################
+
+:Alice a :Person ;
+    :name "Alice Smith" ;
+    :email "alice@example.org" ;
+    :age 30 ;
+    :worksFor :TechCorp .
+
+:Bob a :Person ;
+    :name "Bob Jones" ;
+    :email "bob@example.org" ;
+    :age 28 ;
+    :worksFor :TechCorp ;
+    :knows :Alice .
+
+:Charlie a :Employee ;
+    :name "Charlie Brown" ;
+    :email "charlie@example.org" ;
+    :age 35 ;
+    :salary 75000 ;
+    :worksFor :TechCorp ;
+    :title "Senior Developer" .
+
+:TechCorp a :Company ;
+    :name "TechCorp Inc." ;
+    :founded "2010"^^xsd:gYear ;
+    :employeeCount 150 ;
+    :website "https://techcorp.example.org"^^xsd:anyURI ;
+    :hasLocation :SanFrancisco .
+
+:AIProject a :Project ;
+    :title "AI Research Initiative" ;
+    :description "Research project on artificial intelligence" ;
+    :budget 1000000.00 ;
+    :startDate "2024-01-01"^^xsd:date .
+
+:SanFrancisco a :Location ;
+    :name "San Francisco" .

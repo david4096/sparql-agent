@@ -1,0 +1,400 @@
+# Docker Compose configuration for SPARQL Agent Development
+# Optimized for local development with hot reload, debugging, and dev tools
+
+version: '3.8'
+
+services:
+  # =============================================================================
+  # SPARQL Agent API - Development Mode with Hot Reload
+  # =============================================================================
+  sparql-agent-api:
+    build:
+      context: .
+      dockerfile: Dockerfile
+      target: development
+      args:
+        VERSION: dev
+    image: sparql-agent:dev
+    container_name: sparql-agent-api-dev
+    restart: unless-stopped
+
+    ports:
+      - "8000:8000"
+      - "5678:5678"  # debugpy port for remote debugging
+
+    environment:
+      # Development settings
+      SPARQL_AGENT_HOST: 0.0.0.0
+      SPARQL_AGENT_PORT: 8000
+      SPARQL_AGENT_RELOAD: "true"
+      SPARQL_AGENT_LOG_LEVEL: DEBUG
+      SPARQL_AGENT_WORKERS: 1
+
+      # LLM Configuration (use .env file for secrets)
+      ANTHROPIC_API_KEY: ${ANTHROPIC_API_KEY:-}
+      OPENAI_API_KEY: ${OPENAI_API_KEY:-}
+      SPARQL_AGENT_LLM_PROVIDER: ${LLM_PROVIDER:-anthropic}
+
+      # Redis cache
+      REDIS_ENABLED: "true"
+      REDIS_HOST: redis
+      REDIS_PORT: 6379
+      REDIS_DB: 0
+
+      # Development features
+      SPARQL_AGENT_DEBUG: "true"
+      SPARQL_AGENT_DEV_MODE: "true"
+      PYTHONBREAKPOINT: debugpy.breakpoint
+
+      # Disable security for development
+      API_KEY_ENABLED: "false"
+      CORS_ORIGINS: "*"
+
+    volumes:
+      # Mount source code for hot reload
+      - ./src:/app/src:ro
+      - ./tests:/app/tests:ro
+      - ./pyproject.toml:/app/pyproject.toml:ro
+
+      # Development data directories (writable)
+      - ./dev-data:/app/data
+      - ./dev-logs:/app/logs
+      - ./dev-cache:/app/.cache
+
+    depends_on:
+      - redis
+
+    networks:
+      - sparql-agent-dev
+
+    # Development command with debugger support
+    command: >
+      sh -c "
+      python -m debugpy --listen 0.0.0.0:5678 --wait-for-client -m uvicorn sparql_agent.web.server:app --host 0.0.0.0 --port 8000 --reload ||
+      uvicorn sparql_agent.web.server:app --host 0.0.0.0 --port 8000 --reload
+      "
+
+    labels:
+      - "com.sparql-agent.env=development"
+      - "com.sparql-agent.service=api"
+
+  # =============================================================================
+  # SPARQL Agent MCP Server - Development Mode
+  # =============================================================================
+  sparql-agent-mcp:
+    build:
+      context: .
+      dockerfile: Dockerfile
+      target: development
+    image: sparql-agent:dev
+    container_name: sparql-agent-mcp-dev
+    restart: unless-stopped
+
+    ports:
+      - "3000:3000"
+      - "5679:5679"  # debugpy port for MCP debugging
+
+    environment:
+      SPARQL_AGENT_MODE: mcp
+      SPARQL_AGENT_PORT: 3000
+      SPARQL_AGENT_LOG_LEVEL: DEBUG
+
+      # LLM Configuration
+      ANTHROPIC_API_KEY: ${ANTHROPIC_API_KEY:-}
+      OPENAI_API_KEY: ${OPENAI_API_KEY:-}
+
+      # Redis
+      REDIS_ENABLED: "true"
+      REDIS_HOST: redis
+      REDIS_PORT: 6379
+      REDIS_DB: 1
+
+      # Development
+      SPARQL_AGENT_DEBUG: "true"
+      SPARQL_AGENT_DEV_MODE: "true"
+
+    volumes:
+      - ./src:/app/src:ro
+      - ./dev-data:/app/data
+      - ./dev-logs/mcp:/app/logs
+      - ./dev-cache:/app/.cache
+
+    depends_on:
+      - redis
+
+    networks:
+      - sparql-agent-dev
+
+    command: python -m sparql_agent.mcp.server
+
+    labels:
+      - "com.sparql-agent.env=development"
+      - "com.sparql-agent.service=mcp"
+
+  # =============================================================================
+  # Redis - Development Cache
+  # =============================================================================
+  redis:
+    image: redis:7-alpine
+    container_name: sparql-agent-redis-dev
+    restart: unless-stopped
+
+    ports:
+      - "6379:6379"
+
+    command: redis-server --maxmemory 128mb --maxmemory-policy allkeys-lru
+
+    volumes:
+      - redis-dev-data:/data
+
+    networks:
+      - sparql-agent-dev
+
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 5s
+      timeout: 3s
+      retries: 5
+
+    labels:
+      - "com.sparql-agent.env=development"
+
+  # =============================================================================
+  # Redis Commander - Redis GUI (Development Tool)
+  # =============================================================================
+  redis-commander:
+    image: rediscommander/redis-commander:latest
+    container_name: sparql-agent-redis-commander
+    restart: unless-stopped
+    profiles: ["tools"]
+
+    ports:
+      - "8081:8081"
+
+    environment:
+      REDIS_HOSTS: local:redis:6379
+
+    depends_on:
+      - redis
+
+    networks:
+      - sparql-agent-dev
+
+    labels:
+      - "com.sparql-agent.env=development"
+      - "com.sparql-agent.tool=redis-gui"
+
+  # =============================================================================
+  # Jupyter Lab - Interactive Development (Optional)
+  # =============================================================================
+  jupyter:
+    build:
+      context: .
+      dockerfile: Dockerfile
+      target: development
+    image: sparql-agent:dev
+    container_name: sparql-agent-jupyter
+    restart: unless-stopped
+    profiles: ["jupyter"]
+
+    ports:
+      - "8888:8888"
+
+    environment:
+      JUPYTER_ENABLE_LAB: "yes"
+      JUPYTER_TOKEN: ${JUPYTER_TOKEN:-sparql-agent}
+
+      # LLM keys
+      ANTHROPIC_API_KEY: ${ANTHROPIC_API_KEY:-}
+      OPENAI_API_KEY: ${OPENAI_API_KEY:-}
+
+      # Redis
+      REDIS_HOST: redis
+      REDIS_PORT: 6379
+
+    volumes:
+      - ./src:/app/src
+      - ./notebooks:/app/notebooks
+      - ./dev-data:/app/data
+
+    depends_on:
+      - redis
+
+    networks:
+      - sparql-agent-dev
+
+    command: >
+      jupyter lab
+      --ip=0.0.0.0
+      --port=8888
+      --no-browser
+      --allow-root
+      --NotebookApp.token=${JUPYTER_TOKEN:-sparql-agent}
+
+    labels:
+      - "com.sparql-agent.env=development"
+      - "com.sparql-agent.tool=jupyter"
+
+  # =============================================================================
+  # Test Runner - Continuous Testing (Optional)
+  # =============================================================================
+  test-runner:
+    build:
+      context: .
+      dockerfile: Dockerfile
+      target: testing
+    image: sparql-agent:test
+    container_name: sparql-agent-test-runner
+    profiles: ["testing"]
+
+    environment:
+      PYTEST_ADDOPTS: "-v --cov=sparql_agent --cov-report=html --cov-report=term"
+
+      # Test environment
+      REDIS_HOST: redis
+      REDIS_PORT: 6379
+      REDIS_DB: 15  # Separate DB for tests
+
+    volumes:
+      - ./src:/app/src:ro
+      - ./tests:/app/tests:ro
+      - ./htmlcov:/app/htmlcov
+
+    depends_on:
+      - redis
+
+    networks:
+      - sparql-agent-dev
+
+    # Watch mode with pytest-watch
+    command: ptw --runner "pytest -v --cov=sparql_agent"
+
+    labels:
+      - "com.sparql-agent.env=development"
+      - "com.sparql-agent.tool=testing"
+
+  # =============================================================================
+  # PostgreSQL - Optional Database for Development
+  # =============================================================================
+  postgres:
+    image: postgres:15-alpine
+    container_name: sparql-agent-postgres-dev
+    restart: unless-stopped
+    profiles: ["database"]
+
+    ports:
+      - "5432:5432"
+
+    environment:
+      POSTGRES_DB: sparql_agent_dev
+      POSTGRES_USER: sparql_agent
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-dev_password}
+
+    volumes:
+      - postgres-dev-data:/var/lib/postgresql/data
+      - ./docker/postgres/init:/docker-entrypoint-initdb.d
+
+    networks:
+      - sparql-agent-dev
+
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U sparql_agent"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+    labels:
+      - "com.sparql-agent.env=development"
+
+  # =============================================================================
+  # Adminer - Database GUI (Optional)
+  # =============================================================================
+  adminer:
+    image: adminer:latest
+    container_name: sparql-agent-adminer
+    restart: unless-stopped
+    profiles: ["database"]
+
+    ports:
+      - "8082:8080"
+
+    environment:
+      ADMINER_DEFAULT_SERVER: postgres
+
+    depends_on:
+      - postgres
+
+    networks:
+      - sparql-agent-dev
+
+    labels:
+      - "com.sparql-agent.env=development"
+      - "com.sparql-agent.tool=database-gui"
+
+  # =============================================================================
+  # Mailhog - Email Testing (Optional)
+  # =============================================================================
+  mailhog:
+    image: mailhog/mailhog:latest
+    container_name: sparql-agent-mailhog
+    restart: unless-stopped
+    profiles: ["tools"]
+
+    ports:
+      - "1025:1025"  # SMTP
+      - "8025:8025"  # Web UI
+
+    networks:
+      - sparql-agent-dev
+
+    labels:
+      - "com.sparql-agent.env=development"
+      - "com.sparql-agent.tool=email-testing"
+
+# =============================================================================
+# Networks
+# =============================================================================
+networks:
+  sparql-agent-dev:
+    driver: bridge
+    name: sparql-agent-dev
+
+# =============================================================================
+# Volumes
+# =============================================================================
+volumes:
+  redis-dev-data:
+    driver: local
+  postgres-dev-data:
+    driver: local
+
+# =============================================================================
+# Usage:
+#
+# Start development stack:
+#   docker-compose -f docker-compose.dev.yml up -d
+#
+# Start with all tools:
+#   docker-compose -f docker-compose.dev.yml --profile tools --profile jupyter up -d
+#
+# Start with testing:
+#   docker-compose -f docker-compose.dev.yml --profile testing up -d
+#
+# Start with database:
+#   docker-compose -f docker-compose.dev.yml --profile database up -d
+#
+# View logs:
+#   docker-compose -f docker-compose.dev.yml logs -f sparql-agent-api
+#
+# Run tests:
+#   docker-compose -f docker-compose.dev.yml run --rm sparql-agent-api pytest
+#
+# Open shell in container:
+#   docker-compose -f docker-compose.dev.yml exec sparql-agent-api sh
+#
+# Rebuild after dependency changes:
+#   docker-compose -f docker-compose.dev.yml up -d --build
+#
+# Stop and remove everything:
+#   docker-compose -f docker-compose.dev.yml down -v
+# =============================================================================
