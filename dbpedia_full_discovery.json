@@ -1,0 +1,24 @@
+{
+  "endpoint_url": "https://dbpedia.org/sparql",
+  "discovery_mode": "fast",
+  "progressive_timeout": true,
+  "sparql_version": "1.1",
+  "features": {
+    "BIND": true,
+    "EXISTS": true,
+    "NOT_EXISTS": true,
+    "MINUS": false,
+    "SERVICE": false,
+    "SUBQUERY": true,
+    "VALUES": true,
+    "PROPERTY_PATHS": false,
+    "NAMED_GRAPHS": true
+  },
+  "_metadata": {
+    "failed_queries": [],
+    "timed_out_queries": [],
+    "fast_mode": true,
+    "max_samples": 500,
+    "timeout": 30
+  }
+}
