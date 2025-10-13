@@ -4,7 +4,7 @@
 # =============================================================================
 # Stage 1: Builder - Install dependencies and build application
 # =============================================================================
-FROM python:3.11-slim AS builder
+FROM python:3.14-slim AS builder
 
 # Set build arguments
 ARG UV_VERSION=0.1.0
@@ -51,7 +51,7 @@ RUN uv pip install --no-cache-dir -e .
 # =============================================================================
 # Stage 2: Runtime - Minimal production image
 # =============================================================================
-FROM python:3.11-slim AS runtime
+FROM python:3.14-slim AS runtime
 
 # Set runtime arguments
 ARG VERSION=0.1.0
