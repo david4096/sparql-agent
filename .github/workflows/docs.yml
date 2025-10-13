@@ -331,7 +331,7 @@ jobs:
       - uses: actions/checkout@v4
 
       - name: Run spell checker
-        uses: rojopolis/spellcheck-github-actions@0.35.0
+        uses: rojopolis/spellcheck-github-actions@0.52.0
         with:
           config_path: .github/spellcheck-config.yml
           task_name: Markdown
