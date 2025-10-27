@@ -199,7 +199,7 @@ jobs:
       - uses: actions/checkout@v4
 
       - name: Download Docker images
-        uses: actions/download-artifact@v4
+        uses: actions/download-artifact@v6
         with:
           pattern: docker-image-*
           merge-multiple: true
@@ -277,7 +277,7 @@ jobs:
           password: ${{ secrets.GITHUB_TOKEN }}
 
       - name: Download all Docker images
-        uses: actions/download-artifact@v4
+        uses: actions/download-artifact@v6
         with:
           pattern: docker-image-*
 
@@ -326,7 +326,7 @@ jobs:
       id-token: write  # For trusted publishing
     steps:
       - name: Download artifacts
-        uses: actions/download-artifact@v4
+        uses: actions/download-artifact@v6
         with:
           name: python-packages
           path: dist/
@@ -352,7 +352,7 @@ jobs:
       id-token: write
     steps:
       - name: Download artifacts
-        uses: actions/download-artifact@v4
+        uses: actions/download-artifact@v6
         with:
           name: python-packages
           path: dist/
@@ -395,7 +395,7 @@ jobs:
           echo "EOF" >> $GITHUB_OUTPUT
 
       - name: Download artifacts
-        uses: actions/download-artifact@v4
+        uses: actions/download-artifact@v6
         with:
           name: python-packages
           path: dist/
